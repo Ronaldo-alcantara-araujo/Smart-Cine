@@ -346,7 +346,7 @@ onclick="showScreen('inteligente')">Lista Inteligente</button>
     <section id="filmes" class="screen screen-page">
       <div class="toolbar">
         <h2 class="screen-title">Filmes</h2>
-        <button class="btn-back" onclick="history.back()">← Dashboard</button>
+        <button class="btn-back" onclick="history.back()">← voltar</button>
       </div>
 
       <div class="content-grid">
@@ -363,7 +363,7 @@ onclick="showScreen('inteligente')">Lista Inteligente</button>
                 <input id="filmesGenero" type="text" placeholder="Ex.: Ação, Ficção, Terror" required />
               </div>
               <div class="field full">
-                <label for="filmesCapa">Capa (URL da imagem)</label>
+                <label for="filmesCapa">Capa</label>
                 <input id="filmesCapa" type="file" accept="image/*" />
               </div>
               <div class="field full">
@@ -401,7 +401,7 @@ onclick="showScreen('inteligente')">Lista Inteligente</button>
     <section id="series" class="screen screen-page">
       <div class="toolbar">
         <h2 class="screen-title">Séries</h2>
-        <button class="btn-back" onclick="history.back()">← Dashboard</button>
+        <button class="btn-back" onclick="history.back()">← voltar</button>
       </div>
 
       <div class="content-grid">
@@ -418,7 +418,7 @@ onclick="showScreen('inteligente')">Lista Inteligente</button>
                 <input id="seriesGenero" type="text" placeholder="Ex.: Drama, Suspense, Comédia" required />
               </div>
               <div class="field full">
-                <label for="seriesCapa">Capa (URL da imagem)</label>
+                <label for="seriesCapa">Capa</label>
                 <input id="seriesCapa" type="file" accept="image/*" />
               </div>
               <div class="field full">
@@ -456,7 +456,7 @@ onclick="showScreen('inteligente')">Lista Inteligente</button>
 <section id="inteligente" class="screen screen-page">
   <div class="toolbar">
     <h2 class="screen-title">Lista Inteligente</h2>
-    <button class="btn-back" onclick="history.back()">← Dashboard</button>
+    <button class="btn-back" onclick="history.back()">← voltar</button>
   </div>
 
   <div class="panel" style="text-align:center">
@@ -572,7 +572,7 @@ onclick="showScreen('inteligente')">Lista Inteligente</button>
     }
 
     function setStars(type, value) {
-      state[type].selectedStars = value;
+      state[type].selectedStars = state[type].selectedStars === value ? 0 : value;
       updateStarsUI(type);
     }
 
