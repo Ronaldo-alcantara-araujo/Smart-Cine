@@ -555,8 +555,20 @@ onclick="showScreen('backup')">Backup</button>
 
 
     function saveData() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-      localStorage.setItem(STORAGE_KEY + '_backup_auto', JSON.stringify(appData));
+      const payload = JSON.stringify(appData);
+      try {
+        localStorage.setItem(STORAGE_KEY, payload);
+        localStorage.setItem(STORAGE_KEY + '_backup_auto', payload);
+        return true;
+      } catch (error) {
+        console.error('Erro ao salvar no armazenamento local:', error);
+        if (error && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+          alert('O armazenamento do app está cheio. Exclua alguns itens com capa muito grande ou importe um backup limpo.');
+        } else {
+          alert('Não foi possível gravar os dados no aparelho agora.');
+        }
+        return false;
+      }
     }
 
 
@@ -789,16 +801,19 @@ onclick="showScreen('backup')">Backup</button>
       state[type].isSaving = true;
 
       const submitBtn = document.getElementById(type + 'SubmitBtn');
-      const originalBtnText = submitBtn.textContent;
       submitBtn.disabled = true;
       submitBtn.textContent = 'Salvando...';
 
       try {
-        const nome = document.getElementById(type + 'Nome').value.trim();
-        const genero = document.getElementById(type + 'Genero').value.trim();
-        const sinopse = document.getElementById(type + 'Sinopse').value.trim();
+        const nomeInput = document.getElementById(type + 'Nome');
+        const generoInput = document.getElementById(type + 'Genero');
+        const sinopseInput = document.getElementById(type + 'Sinopse');
         const fileInput = document.getElementById(type + 'Capa');
-        const editingId = state[type].editingId;
+
+        const nome = nomeInput.value.trim();
+        const genero = generoInput.value.trim();
+        const sinopse = sinopseInput.value.trim();
+        const editingId = state[type].editingId || null;
         const currentItem = editingId ? appData[type].find(item => item.id === editingId) : null;
         let capa = currentItem?.capa || '';
 
@@ -807,49 +822,56 @@ onclick="showScreen('backup')">Backup</button>
           return;
         }
 
-        if (fileInput.files && fileInput.files[0]) {
+        if (fileInput && fileInput.files && fileInput.files[0]) {
           capa = await fileToBase64(fileInput.files[0]);
         }
 
         const estrelas = Number(state[type].selectedStars) || 0;
         const estrelasValidadas = (estrelas >= 1 && estrelas <= 5) ? estrelas : 0;
 
+        const novoItem = editingId
+          ? {
+              ...currentItem,
+              nome,
+              genero,
+              capa,
+              sinopse,
+              estrelas: estrelasValidadas,
+              assistido: currentItem?.assistido === true
+            }
+          : {
+              id: generateId(),
+              nome,
+              genero,
+              capa,
+              sinopse,
+              estrelas: estrelasValidadas,
+              assistido: false
+            };
+
         if (editingId) {
-          appData[type] = appData[type].map(item =>
-            item.id === editingId
-              ? {
-                  ...item,
-                  nome,
-                  genero,
-                  capa,
-                  sinopse,
-                  estrelas: estrelasValidadas,
-                  assistido: currentItem?.assistido === true
-                }
-              : item
-          );
+          const index = appData[type].findIndex(item => item.id === editingId);
+          if (index === -1) {
+            throw new Error('Item não encontrado para edição.');
+          }
+          appData[type][index] = novoItem;
         } else {
-          appData[type].unshift({
-            id: generateId(),
-            nome,
-            genero,
-            capa,
-            sinopse,
-            estrelas: estrelasValidadas,
-            assistido: false
-          });
+          appData[type].unshift(novoItem);
         }
 
-        saveData();
+        const saved = saveData();
+        if (!saved) {
+          if (editingId) {
+            const rollbackIndex = appData[type].findIndex(item => item.id === novoItem.id);
+            if (rollbackIndex !== -1 && currentItem) appData[type][rollbackIndex] = currentItem;
+          } else {
+            appData[type] = appData[type].filter(item => item.id !== novoItem.id);
+          }
+          return;
+        }
+
         clearForm(type);
         renderAll();
-
-        requestAnimationFrame(() => {
-          renderList(type);
-          updateDashboard();
-          renderStats();
-          updateBackupInfo();
-        });
       } catch (error) {
         console.error('Erro ao salvar item:', error);
         alert('Não foi possível salvar agora.');
@@ -857,7 +879,6 @@ onclick="showScreen('backup')">Backup</button>
         state[type].isSaving = false;
         submitBtn.disabled = false;
         updateFormHeader(type);
-        submitBtn.textContent = document.getElementById(type + 'SubmitBtn').textContent || originalBtnText;
       }
     }
 
