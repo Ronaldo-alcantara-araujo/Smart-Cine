@@ -159,7 +159,6 @@
       background: linear-gradient(180deg, #deb82d 0%, #c49a19 100%); color:#000; padding:12px 16px;
       box-shadow: inset 0 0 0 1px rgba(255,255,255,.2);
     }
-    .btn-primary:disabled { opacity:.72; cursor:not-allowed; }
     .btn-list { padding: 10px 12px; color:#fff; }
     .btn-edit { background: linear-gradient(180deg, #0b5c27, #073316); }
     .btn-delete { background: linear-gradient(180deg, #7c210f, #4a1208); }
@@ -530,52 +529,147 @@ onclick="showScreen('backup')">Backup</button>
 
   </div>
 
+  
   <script>
-    const STORAGE_KEY = 'filmes_series_alcantara_style_v1';
+    const DB_NAME = 'smart-cine-db';
+    const DB_VERSION = 1;
+    const LEGACY_STORAGE_KEY = 'filmes_series_alcantara_style_v1';
 
+    let db = null;
     let appData = { filmes: [], series: [] };
     let state = {
-      filmes: { editingId: null, selectedStars: 0, filter: 'all' },
-      series: { editingId: null, selectedStars: 0, filter: 'all' },
+      filmes: { editingId: null, selectedStars: 0, filter: 'all', isSaving: false },
+      series: { editingId: null, selectedStars: 0, filter: 'all', isSaving: false },
       detailReturnTo: 'dashboard',
       currentDetail: { type: null, id: null }
     };
 
-    function loadData() {
+    function openDatabase() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onupgradeneeded = (event) => {
+          const database = event.target.result;
+
+          if (!database.objectStoreNames.contains('filmes')) {
+            database.createObjectStore('filmes', { keyPath: 'id' });
+          }
+          if (!database.objectStoreNames.contains('series')) {
+            database.createObjectStore('series', { keyPath: 'id' });
+          }
+          if (!database.objectStoreNames.contains('meta')) {
+            database.createObjectStore('meta', { keyPath: 'key' });
+          }
+        };
+
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error('Falha ao abrir IndexedDB.'));
+      });
+    }
+
+    function getStore(storeName, mode = 'readonly') {
+      const tx = db.transaction(storeName, mode);
+      return tx.objectStore(storeName);
+    }
+
+    function idbGetMeta(key) {
+      return new Promise((resolve, reject) => {
+        const request = getStore('meta').get(key);
+        request.onsuccess = () => resolve(request.result ? request.result.value : null);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function idbSetMeta(key, value) {
+      return new Promise((resolve, reject) => {
+        const request = getStore('meta', 'readwrite').put({ key, value });
+        request.onsuccess = () => resolve(true);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function idbGetAll(storeName) {
+      return new Promise((resolve, reject) => {
+        const request = getStore(storeName).getAll();
+        request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function idbReplaceAll(storeName, items) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+
+        const clearReq = store.clear();
+        clearReq.onerror = () => reject(clearReq.error);
+
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error || new Error('Falha ao atualizar banco.'));
+        tx.onabort = () => reject(tx.error || new Error('Operação abortada.'));
+
+        clearReq.onsuccess = () => {
+          (items || []).forEach(item => store.put(item));
+        };
+      });
+    }
+
+    async function migrateLegacyDataIfNeeded() {
+      const migrated = await idbGetMeta('legacyMigrated');
+      if (migrated) return;
+
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
-        const parsed = JSON.parse(raw);
-        appData.filmes = Array.isArray(parsed.filmes) ? parsed.filmes : [];
-        appData.series = Array.isArray(parsed.series) ? parsed.series : [];
+        const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const filmes = Array.isArray(parsed.filmes) ? parsed.filmes : [];
+          const series = Array.isArray(parsed.series) ? parsed.series : [];
+          if (filmes.length || series.length) {
+            await idbReplaceAll('filmes', filmes);
+            await idbReplaceAll('series', series);
+          }
+        }
       } catch (e) {
-        console.error('Erro ao carregar dados', e);
+        console.error('Erro ao migrar localStorage antigo:', e);
+      }
+
+      await idbSetMeta('legacyMigrated', true);
+    }
+
+    async function loadData() {
+      try {
+        const [filmes, series] = await Promise.all([
+          idbGetAll('filmes'),
+          idbGetAll('series')
+        ]);
+        appData.filmes = filmes;
+        appData.series = series;
+      } catch (e) {
+        console.error('Erro ao carregar dados do banco local:', e);
+        appData = { filmes: [], series: [] };
       }
     }
 
-
-    function saveData() {
-      const payload = JSON.stringify(appData);
+    async function saveData() {
       try {
-        localStorage.setItem(STORAGE_KEY, payload);
-        localStorage.setItem(STORAGE_KEY + '_backup_auto', payload);
+        await Promise.all([
+          idbReplaceAll('filmes', appData.filmes),
+          idbReplaceAll('series', appData.series),
+          idbSetMeta('lastSavedAt', new Date().toISOString())
+        ]);
         return true;
       } catch (error) {
-        console.error('Erro ao salvar no armazenamento local:', error);
-        if (error && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
-          alert('O armazenamento do app está cheio. Exclua alguns itens com capa muito grande ou importe um backup limpo.');
-        } else {
-          alert('Não foi possível gravar os dados no aparelho agora.');
-        }
+        console.error('Erro ao salvar no IndexedDB:', error);
+        alert('Não foi possível gravar os dados no banco local agora.');
         return false;
       }
     }
 
-
     function getBackupPayload() {
       return {
         app: 'Smart Cine',
-        version: 1,
+        version: 2,
+        storage: 'indexeddb',
         exportedAt: new Date().toISOString(),
         data: {
           filmes: Array.isArray(appData.filmes) ? appData.filmes : [],
@@ -584,20 +678,23 @@ onclick="showScreen('backup')">Backup</button>
       };
     }
 
-    function updateBackupInfo() {
+    async function updateBackupInfo() {
       const info = document.getElementById('backupInfo');
       if (!info) return;
 
       const totalFilmes = Array.isArray(appData.filmes) ? appData.filmes.length : 0;
       const totalSeries = Array.isArray(appData.series) ? appData.series.length : 0;
       const total = totalFilmes + totalSeries;
+      const lastSavedAt = await idbGetMeta('lastSavedAt');
+      const lastSavedText = lastSavedAt ? new Date(lastSavedAt).toLocaleString('pt-BR') : 'Ainda não salvo';
 
       info.innerHTML = `
         <div><strong>Filmes:</strong> ${totalFilmes}</div>
         <div><strong>Séries:</strong> ${totalSeries}</div>
         <div><strong>Total cadastrado:</strong> ${total}</div>
-        <div><strong>Armazenamento:</strong> Local no navegador</div>
-        <div><strong>Backup automático:</strong> Ativo</div>
+        <div><strong>Armazenamento:</strong> IndexedDB local</div>
+        <div><strong>Backup JSON:</strong> Ativo</div>
+        <div><strong>Último salvamento:</strong> ${lastSavedText}</div>
       `;
     }
 
@@ -626,13 +723,13 @@ onclick="showScreen('backup')">Backup</button>
       }
     }
 
-    function importBackup(event) {
+    async function importBackup(event) {
       const file = event.target.files && event.target.files[0];
       if (!file) return;
 
       const reader = new FileReader();
 
-      reader.onload = function(e) {
+      reader.onload = async function(e) {
         try {
           const raw = e.target.result;
           const parsed = JSON.parse(raw);
@@ -664,11 +761,12 @@ onclick="showScreen('backup')">Backup</button>
           appData.filmes = filmes;
           appData.series = series;
 
-          saveData();
+          const saved = await saveData();
+          if (!saved) return;
+
           clearForm('filmes');
           clearForm('series');
           renderAll();
-          updateBackupInfo();
 
           alert('Backup restaurado com sucesso.');
         } catch (error) {
@@ -687,11 +785,55 @@ onclick="showScreen('backup')">Backup</button>
       reader.readAsText(file);
     }
 
-    function fileToBase64(file) {
+    function compressImageFile(file, options = {}) {
+      const {
+        maxWidth = 900,
+        maxHeight = 1350,
+        qualityStart = 0.82,
+        qualityMin = 0.58,
+        maxBytes = 350 * 1024
+      } = options;
+
       return new Promise((resolve, reject) => {
+        if (!file || !file.type.startsWith('image/')) {
+          resolve('');
+          return;
+        }
+
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            let width = img.width;
+            let height = img.height;
+
+            const ratio = Math.min(maxWidth / width, maxHeight / height, 1);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+
+            const ctx = canvas.getContext('2d', { alpha: false });
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+
+            let quality = qualityStart;
+            let dataUrl = canvas.toDataURL('image/jpeg', quality);
+
+            while (dataUrl.length > maxBytes * 1.37 && quality > qualityMin) {
+              quality = Math.max(quality - 0.06, qualityMin);
+              dataUrl = canvas.toDataURL('image/jpeg', quality);
+            }
+
+            resolve(dataUrl);
+          };
+          img.onerror = () => reject(new Error('Falha ao processar imagem.'));
+          img.src = reader.result;
+        };
+        reader.onerror = () => reject(reader.error || new Error('Falha ao ler imagem.'));
         reader.readAsDataURL(file);
       });
     }
@@ -823,7 +965,7 @@ onclick="showScreen('backup')">Backup</button>
         }
 
         if (fileInput && fileInput.files && fileInput.files[0]) {
-          capa = await fileToBase64(fileInput.files[0]);
+          capa = await compressImageFile(fileInput.files[0]);
         }
 
         const estrelas = Number(state[type].selectedStars) || 0;
@@ -849,6 +991,8 @@ onclick="showScreen('backup')">Backup</button>
               assistido: false
             };
 
+        const previousItems = appData[type].slice();
+
         if (editingId) {
           const index = appData[type].findIndex(item => item.id === editingId);
           if (index === -1) {
@@ -859,14 +1003,9 @@ onclick="showScreen('backup')">Backup</button>
           appData[type].unshift(novoItem);
         }
 
-        const saved = saveData();
+        const saved = await saveData();
         if (!saved) {
-          if (editingId) {
-            const rollbackIndex = appData[type].findIndex(item => item.id === novoItem.id);
-            if (rollbackIndex !== -1 && currentItem) appData[type][rollbackIndex] = currentItem;
-          } else {
-            appData[type] = appData[type].filter(item => item.id !== novoItem.id);
-          }
+          appData[type] = previousItems;
           return;
         }
 
@@ -896,11 +1035,11 @@ onclick="showScreen('backup')">Backup</button>
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    function deleteItem(type, id) {
+    async function deleteItem(type, id) {
       if (!confirm('Deseja excluir este item?')) return;
       appData[type] = appData[type].filter(item => item.id !== id);
       if (state[type].editingId === id) clearForm(type);
-      saveData();
+      await saveData();
       renderAll();
     }
 
@@ -926,8 +1065,7 @@ onclick="showScreen('backup')">Backup</button>
         if (state[type].filter === '4+') filterOk = Number(item.estrelas) >= 4;
         if (state[type].filter === 'assistido') filterOk = item.assistido === true;
         if (state[type].filter === 'pendente') filterOk = !item.assistido;
-        let final = searchOk && filterOk;
-        return final;
+        return searchOk && filterOk;
       });
     }
 
@@ -944,7 +1082,6 @@ onclick="showScreen('backup')">Backup</button>
       const list = document.getElementById(type + 'List');
       const label = type === 'filmes' ? 'filme' : 'série';
       let items = getFilteredItems(type);
-      // ranking automático por nota
       items = items.sort((a,b)=> (b.estrelas||0) - (a.estrelas||0));
 
       if (!items.length) {
@@ -972,8 +1109,6 @@ onclick="showScreen('backup')">Backup</button>
       `).join('');
     }
 
-    
-
     function triggerDetailCoverPicker() {
       const input = document.getElementById('detailCoverInput');
       if (input) input.click();
@@ -983,13 +1118,15 @@ onclick="showScreen('backup')">Backup</button>
       const file = event.target.files && event.target.files[0];
       if (!file || !state.currentDetail.type || !state.currentDetail.id) return;
 
-      const capaBase64 = await fileToBase64(file);
+      const capaBase64 = await compressImageFile(file);
 
       appData[state.currentDetail.type] = appData[state.currentDetail.type].map(item =>
         item.id === state.currentDetail.id ? { ...item, capa: capaBase64 } : item
       );
 
-      saveData();
+      const saved = await saveData();
+      if (!saved) return;
+
       openDetail(state.currentDetail.type, state.currentDetail.id);
       event.target.value = '';
     }
@@ -1033,42 +1170,41 @@ onclick="showScreen('backup')">Backup</button>
       history.back();
     }
 
+    async function toggleAssistido(type, id) {
+      appData[type] = appData[type].map(item =>
+        item.id === id ? { ...item, assistido: !item.assistido } : item
+      );
+      const saved = await saveData();
+      if (!saved) return;
+      renderAll();
+    }
 
-function toggleAssistido(type, id) {
-  appData[type] = appData[type].map(item =>
-    item.id === id ? { ...item, assistido: !item.assistido } : item
-  );
-  saveData();
-  renderAll();
-}
+    function renderStats() {
+      const total = appData.filmes.length + appData.series.length;
+      const assistidos = [...appData.filmes, ...appData.series].filter(i=>i.assistido === true).length;
+      const top = [...appData.filmes, ...appData.series].sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).slice(0,5);
 
+      let html = `<div>Total: ${total} | Assistidos: ${assistidos}</div>`;
+      if(top.length){
+        html += '<br><strong>TOP FILMES</strong><br>';
+        const topFilmes = appData.filmes.slice().sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).slice(0,5);
+        html += topFilmes.map((i,idx)=>{
+          let estrelas = '★'.repeat(i.estrelas||0) + '☆'.repeat(5-(i.estrelas||0));
+          let destaque = idx === 0 ? 'style="color:#d4af37;font-weight:900;text-shadow:0 0 10px #d4af37"' : '';
+          return `<div ${destaque}>${estrelas} ${escapeHtml(i.nome)}</div>`;
+        }).join('');
 
-function renderStats(){
-  const total = appData.filmes.length + appData.series.length;
-  const assistidos = [...appData.filmes, ...appData.series].filter(i=>i.assistido === true).length;
-  const top = [...appData.filmes, ...appData.series].sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).slice(0,5);
+        html += '<br><br><strong>TOP SÉRIES</strong><br>';
+        const topSeries = appData.series.slice().sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).slice(0,5);
+        html += topSeries.map((i)=>{
+          let estrelas = '★'.repeat(i.estrelas||0) + '☆'.repeat(5-(i.estrelas||0));
+          return `<div>${estrelas} ${escapeHtml(i.nome)}</div>`;
+        }).join('');
+      }
+      document.getElementById('stats').innerHTML = html;
+    }
 
-  let html = `<div>Total: ${total} | Assistidos: ${assistidos}</div>`;
-  if(top.length){
-    html += '<br><strong>TOP FILMES</strong><br>';
-    const topFilmes = appData.filmes.sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).slice(0,5);
-    html += topFilmes.map((i,idx)=>{
-  let estrelas = '★'.repeat(i.estrelas||0) + '☆'.repeat(5-(i.estrelas||0));
-  let destaque = idx === 0 ? 'style="color:#d4af37;font-weight:900;text-shadow:0 0 10px #d4af37"' : '';
-  return `<div ${destaque}>${estrelas} ${i.nome}</div>`;
-}).join('');
-
-    html += '<br><br><strong>TOP SÉRIES</strong><br>';
-    const topSeries = appData.series.sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).slice(0,5);
-    html += topSeries.map((i,idx)=>{
-      let estrelas = '★'.repeat(i.estrelas||0) + '☆'.repeat(5-(i.estrelas||0));
-      return `<div>${estrelas} ${i.nome}</div>`;
-    }).join('');
-  }
-  document.getElementById('stats').innerHTML = html;
-}
-
-function renderAll() {
+    function renderAll() {
       updateDashboard();
       renderStats();
       renderList('filmes');
@@ -1081,15 +1217,24 @@ function renderAll() {
     document.getElementById('filmesSearch').addEventListener('input', () => renderList('filmes'));
     document.getElementById('seriesSearch').addEventListener('input', () => renderList('series'));
 
-    loadData();
-    createStars('filmesStars', 'filmes');
-    createStars('seriesStars', 'series');
-    clearForm('filmes');
-    clearForm('series');
-    setFilter('filmes', 'all');
-    setFilter('series', 'all');
-    renderAll();
+    async function initApp() {
+      try {
+        db = await openDatabase();
+        await migrateLegacyDataIfNeeded();
+        await loadData();
+      } catch (error) {
+        console.error('Erro ao iniciar banco local:', error);
+        alert('Não foi possível iniciar o banco local do app.');
+      }
 
+      createStars('filmesStars', 'filmes');
+      createStars('seriesStars', 'series');
+      clearForm('filmes');
+      clearForm('series');
+      setFilter('filmes', 'all');
+      setFilter('series', 'all');
+      renderAll();
+    }
 
     window.addEventListener('popstate', (event) => {
       const targetScreen = event.state?.screen || 'dashboard';
@@ -1106,22 +1251,50 @@ function renderAll() {
       activateScreen(targetScreen, true, reverseAnimation);
     });
 
-    window.addEventListener('load', () => {
+    let refreshingApp = false;
+
+    window.addEventListener('load', async () => {
       history.replaceState({ screen: 'dashboard' }, '');
       navigationStack = ['dashboard'];
-    });
 
-
-    window.addEventListener('load', () => {
       const splash = document.getElementById('splashScreen');
       setTimeout(() => splash?.classList.add('hidden'), 1100);
-    });
 
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(err => console.log('SW erro:', err));
-      });
-    }
+      await initApp();
+
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.register('./sw.js', { scope: './' });
+
+          if (registration.waiting) {
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (!newWorker) return;
+
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                newWorker.postMessage({ type: 'SKIP_WAITING' });
+              }
+            });
+          });
+
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (refreshingApp) return;
+            refreshingApp = true;
+            window.location.reload();
+          });
+
+          setInterval(() => {
+            registration.update();
+          }, 60000);
+        } catch (err) {
+          console.log('SW erro:', err);
+        }
+      }
+    });
   </script>
 </body>
 </html>
