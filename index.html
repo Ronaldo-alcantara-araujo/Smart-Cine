@@ -159,6 +159,7 @@
       background: linear-gradient(180deg, #deb82d 0%, #c49a19 100%); color:#000; padding:12px 16px;
       box-shadow: inset 0 0 0 1px rgba(255,255,255,.2);
     }
+    .btn-primary:disabled { opacity:.72; cursor:not-allowed; }
     .btn-list { padding: 10px 12px; color:#fff; }
     .btn-edit { background: linear-gradient(180deg, #0b5c27, #073316); }
     .btn-delete { background: linear-gradient(180deg, #7c210f, #4a1208); }
@@ -341,11 +342,6 @@
 onclick="showScreen('inteligente')">Lista Inteligente</button>
 </div>
 
-<div style="margin-top:10px;text-align:center">
-<button type="button" style="padding:14px 20px;font-size:18px;border-radius:16px;background:#161616;color:#d4af37;border:1px solid rgba(212,175,55,.3);font-weight:700"
-onclick="showScreen('backup')">Backup</button>
-</div>
-
     </section>
 
     <section id="filmes" class="screen screen-page">
@@ -471,41 +467,6 @@ onclick="showScreen('backup')">Backup</button>
 </section>
 
 
-
-    <section id="backup" class="screen screen-page">
-      <div class="toolbar">
-        <h2 class="screen-title">Backup</h2>
-        <button class="btn-back" onclick="history.back()">← voltar</button>
-      </div>
-
-      <div class="content-grid">
-        <div class="panel">
-          <h3>Segurança dos Dados</h3>
-          <p style="color:#cfcfcf;line-height:1.5;margin-top:0">
-            Exporte um arquivo de backup da sua biblioteca e restaure quando quiser.
-          </p>
-
-          <div class="actions">
-            <button type="button" class="btn-primary" onclick="exportBackup()">Exportar Backup</button>
-            <button type="button" class="btn-secondary" onclick="document.getElementById('backupImportInput').click()">Importar Backup</button>
-          </div>
-
-          <input
-            id="backupImportInput"
-            type="file"
-            accept=".json,application/json"
-            style="display:none"
-            onchange="importBackup(event)"
-          />
-        </div>
-
-        <div class="panel">
-          <h3>Informações</h3>
-          <div id="backupInfo" style="color:#d8d8d8;line-height:1.7"></div>
-        </div>
-      </div>
-    </section>
-
     <section id="detalhe" class="screen screen-page">
       <div class="toolbar">
         <h2 class="screen-title" id="detailScreenTitle">Detalhes</h2>
@@ -555,122 +516,6 @@ onclick="showScreen('backup')">Backup</button>
 
     function saveData() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-      localStorage.setItem(STORAGE_KEY + '_backup_auto', JSON.stringify(appData));
-    }
-
-    function getBackupPayload() {
-      return {
-        app: 'Smart Cine',
-        version: 1,
-        exportedAt: new Date().toISOString(),
-        data: {
-          filmes: Array.isArray(appData.filmes) ? appData.filmes : [],
-          series: Array.isArray(appData.series) ? appData.series : []
-        }
-      };
-    }
-
-    function updateBackupInfo() {
-      const info = document.getElementById('backupInfo');
-      if (!info) return;
-
-      const totalFilmes = Array.isArray(appData.filmes) ? appData.filmes.length : 0;
-      const totalSeries = Array.isArray(appData.series) ? appData.series.length : 0;
-      const total = totalFilmes + totalSeries;
-
-      info.innerHTML = `
-        <div><strong>Filmes:</strong> ${totalFilmes}</div>
-        <div><strong>Séries:</strong> ${totalSeries}</div>
-        <div><strong>Total cadastrado:</strong> ${total}</div>
-        <div><strong>Armazenamento:</strong> Local no navegador</div>
-        <div><strong>Backup automático:</strong> Ativo</div>
-      `;
-    }
-
-    function exportBackup() {
-      try {
-        const payload = getBackupPayload();
-        const json = JSON.stringify(payload, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-
-        const now = new Date();
-        const pad = n => String(n).padStart(2, '0');
-        const fileName = `smart-cine-backup-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}.json`;
-
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      } catch (error) {
-        console.error('Erro ao exportar backup:', error);
-        alert('Não foi possível exportar o backup.');
-      }
-    }
-
-    function importBackup(event) {
-      const file = event.target.files && event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-
-      reader.onload = function(e) {
-        try {
-          const raw = e.target.result;
-          const parsed = JSON.parse(raw);
-
-          let filmes = [];
-          let series = [];
-
-          if (parsed && parsed.data) {
-            filmes = Array.isArray(parsed.data.filmes) ? parsed.data.filmes : [];
-            series = Array.isArray(parsed.data.series) ? parsed.data.series : [];
-          } else {
-            filmes = Array.isArray(parsed.filmes) ? parsed.filmes : [];
-            series = Array.isArray(parsed.series) ? parsed.series : [];
-          }
-
-          if (!Array.isArray(filmes) || !Array.isArray(series)) {
-            throw new Error('Estrutura inválida');
-          }
-
-          const confirmar = confirm(
-            `Deseja restaurar este backup?\n\nFilmes: ${filmes.length}\nSéries: ${series.length}\n\nOs dados atuais serão substituídos.`
-          );
-
-          if (!confirmar) {
-            event.target.value = '';
-            return;
-          }
-
-          appData.filmes = filmes;
-          appData.series = series;
-
-          saveData();
-          clearForm('filmes');
-          clearForm('series');
-          renderAll();
-          updateBackupInfo();
-
-          alert('Backup restaurado com sucesso.');
-        } catch (error) {
-          console.error('Erro ao importar backup:', error);
-          alert('Arquivo de backup inválido ou corrompido.');
-        } finally {
-          event.target.value = '';
-        }
-      };
-
-      reader.onerror = function() {
-        alert('Erro ao ler o arquivo de backup.');
-        event.target.value = '';
-      };
-
-      reader.readAsText(file);
     }
 
     function fileToBase64(file) {
@@ -782,51 +627,92 @@ onclick="showScreen('backup')">Backup</button>
 
     async function handleSubmit(type, event) {
       event.preventDefault();
-      const nome = document.getElementById(type + 'Nome').value.trim();
-      const genero = document.getElementById(type + 'Genero').value.trim();
-      const sinopse = document.getElementById(type + 'Sinopse').value.trim();
-      const fileInput = document.getElementById(type + 'Capa');
-      let capa = '';
 
-      if (state[type].editingId) {
-        const currentItem = appData[type].find(item => item.id === state[type].editingId);
-        capa = currentItem?.capa || '';
+      if (state[type].isSaving) return;
+      state[type].isSaving = true;
+
+      const submitBtn = document.getElementById(type + 'SubmitBtn');
+      const originalBtnText = submitBtn.textContent;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Salvando...';
+
+      try {
+        const nome = document.getElementById(type + 'Nome').value.trim();
+        const genero = document.getElementById(type + 'Genero').value.trim();
+        const sinopse = document.getElementById(type + 'Sinopse').value.trim();
+        const fileInput = document.getElementById(type + 'Capa');
+        const editingId = state[type].editingId;
+        const currentItem = editingId ? appData[type].find(item => item.id === editingId) : null;
+        let capa = currentItem?.capa || '';
+
+        if (!nome || !genero) {
+          alert('Preencha nome e gênero.');
+          return;
+        }
+
+        if (fileInput.files && fileInput.files[0]) {
+          capa = await fileToBase64(fileInput.files[0]);
+        }
+
+        const estrelas = Number(state[type].selectedStars) || 0;
+        const estrelasValidadas = (estrelas >= 1 && estrelas <= 5) ? estrelas : 0;
+
+        if (editingId) {
+          appData[type] = appData[type].map(item =>
+            item.id === editingId
+              ? {
+                  ...item,
+                  nome,
+                  genero,
+                  capa,
+                  sinopse,
+                  estrelas: estrelasValidadas,
+                  assistido: currentItem?.assistido === true
+                }
+              : item
+          );
+        } else {
+          appData[type].unshift({
+            id: generateId(),
+            nome,
+            genero,
+            capa,
+            sinopse,
+            estrelas: estrelasValidadas,
+            assistido: false
+          });
+        }
+
+        saveData();
+        clearForm(type);
+        renderAll();
+
+        requestAnimationFrame(() => {
+          renderList(type);
+          updateDashboard();
+          renderStats();
+          updateBackupInfo();
+        });
+      } catch (error) {
+        console.error('Erro ao salvar item:', error);
+        alert('Não foi possível salvar agora.');
+      } finally {
+        state[type].isSaving = false;
+        submitBtn.disabled = false;
+        updateFormHeader(type);
+        submitBtn.textContent = document.getElementById(type + 'SubmitBtn').textContent || originalBtnText;
       }
-
-      if (fileInput.files && fileInput.files[0]) {
-        capa = await fileToBase64(fileInput.files[0]);
-      }
-      const estrelas = state[type].selectedStars;
-
-      if (!nome || !genero) {
-        alert('Preencha nome e gênero.');
-        return;
-      }
-      // classificação opcional (pode ser 0 até assistir)
-      const estrelasValidadas = (estrelas >= 1 && estrelas <= 5) ? estrelas : 0;
-
-      if (state[type].editingId) {
-        appData[type] = appData[type].map(item =>
-          item.id === state[type].editingId ? { ...item, nome, genero, capa, sinopse, estrelas: estrelasValidadas, assistido: item.assistido || false } : item
-        );
-      } else {
-        appData[type].unshift({ id: generateId(), nome, genero, capa, sinopse, estrelas: estrelasValidadas, assistido: false });
-      }
-
-      saveData();
-      clearForm(type);
-      renderAll();
     }
 
     function editItem(type, id) {
       const item = appData[type].find(entry => entry.id === id);
       if (!item) return;
       state[type].editingId = id;
-      document.getElementById(type + 'Nome').value = item.nome;
-      document.getElementById(type + 'Genero').value = item.genero;
+      document.getElementById(type + 'Nome').value = item.nome || '';
+      document.getElementById(type + 'Genero').value = item.genero || '';
       document.getElementById(type + 'Capa').value = '';
       document.getElementById(type + 'Sinopse').value = item.sinopse || '';
-      state[type].selectedStars = item.estrelas;
+      state[type].selectedStars = Number(item.estrelas) || 0;
       updateStarsUI(type);
       updateFormHeader(type);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -842,11 +728,11 @@ onclick="showScreen('backup')">Backup</button>
 
     function setFilter(type, filter) {
       state[type].filter = filter;
-      ['All', '5', '4'].forEach(suffix => {
+      ['All', '5', '4', 'Assistido', 'Pendente'].forEach(suffix => {
         const btn = document.getElementById(type + 'Filter' + suffix);
         if (btn) btn.classList.remove('active');
       });
-      const map = { all: 'All', '5': '5', '4+': '4' };
+      const map = { all: 'All', '5': '5', '4+': '4', assistido: 'Assistido', pendente: 'Pendente' };
       const active = document.getElementById(type + 'Filter' + map[filter]);
       if (active) active.classList.add('active');
       renderList(type);
@@ -1005,11 +891,9 @@ function renderStats(){
 }
 
 function renderAll() {
-      updateDashboard();
-      renderStats();
+      updateDashboard(); renderStats();
       renderList('filmes');
       renderList('series');
-      updateBackupInfo();
     }
 
     document.getElementById('filmesForm').addEventListener('submit', event => handleSubmit('filmes', event));
