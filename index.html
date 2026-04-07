@@ -368,8 +368,8 @@ onclick="showScreen('backup')">Backup</button>
                 <input id="filmesGenero" type="text" placeholder="Ex.: Ação, Ficção, Terror" required />
               </div>
               <div class="field full">
-                <label for="filmesCapa">Capa</label>
-                <input id="filmesCapa" type="file" accept="image/*" />
+                <label for="filmesCapa">URL da Capa</label>
+                <input id="filmesCapa" type="url" placeholder="https://exemplo.com/capa.jpg" />
               </div>
               <div class="field full">
                 <label for="filmesSinopse">Sinopse</label>
@@ -423,8 +423,8 @@ onclick="showScreen('backup')">Backup</button>
                 <input id="seriesGenero" type="text" placeholder="Ex.: Drama, Suspense, Comédia" required />
               </div>
               <div class="field full">
-                <label for="seriesCapa">Capa</label>
-                <input id="seriesCapa" type="file" accept="image/*" />
+                <label for="seriesCapa">URL da Capa</label>
+                <input id="seriesCapa" type="url" placeholder="https://exemplo.com/capa.jpg" />
               </div>
               <div class="field full">
                 <label for="seriesSinopse">Sinopse</label>
@@ -516,7 +516,6 @@ onclick="showScreen('backup')">Backup</button>
         <div class="detail-grid">
           <div>
             <div id="detailCoverWrap" onclick="triggerDetailCoverPicker()" style="cursor:pointer"></div>
-            <input id="detailCoverInput" type="file" accept="image/*" style="display:none" onchange="handleDetailCoverChange(event)" />
           </div>
           <div>
             <h3 id="detailTitle">Título</h3>
@@ -964,8 +963,9 @@ onclick="showScreen('backup')">Backup</button>
           return;
         }
 
-        if (fileInput && fileInput.files && fileInput.files[0]) {
-          capa = await compressImageFile(fileInput.files[0]);
+        const capaInputValue = fileInput ? fileInput.value.trim() : '';
+        if (capaInputValue) {
+          capa = capaInputValue;
         }
 
         const estrelas = Number(state[type].selectedStars) || 0;
@@ -1027,7 +1027,7 @@ onclick="showScreen('backup')">Backup</button>
       state[type].editingId = id;
       document.getElementById(type + 'Nome').value = item.nome || '';
       document.getElementById(type + 'Genero').value = item.genero || '';
-      document.getElementById(type + 'Capa').value = '';
+      document.getElementById(type + 'Capa').value = item.capa || '';
       document.getElementById(type + 'Sinopse').value = item.sinopse || '';
       state[type].selectedStars = Number(item.estrelas) || 0;
       updateStarsUI(type);
@@ -1110,25 +1110,28 @@ onclick="showScreen('backup')">Backup</button>
     }
 
     function triggerDetailCoverPicker() {
-      const input = document.getElementById('detailCoverInput');
-      if (input) input.click();
+      if (!state.currentDetail.type || !state.currentDetail.id) return;
+
+      const currentItem = appData[state.currentDetail.type].find(item => item.id === state.currentDetail.id);
+      const currentUrl = currentItem?.capa || '';
+      const novaUrl = prompt('Cole a URL da capa:', currentUrl);
+
+      if (novaUrl === null) return;
+
+      const urlFinal = novaUrl.trim();
+
+      appData[state.currentDetail.type] = appData[state.currentDetail.type].map(item =>
+        item.id === state.currentDetail.id ? { ...item, capa: urlFinal } : item
+      );
+
+      saveData().then(saved => {
+        if (!saved) return;
+        openDetail(state.currentDetail.type, state.currentDetail.id);
+      });
     }
 
     async function handleDetailCoverChange(event) {
-      const file = event.target.files && event.target.files[0];
-      if (!file || !state.currentDetail.type || !state.currentDetail.id) return;
-
-      const capaBase64 = await compressImageFile(file);
-
-      appData[state.currentDetail.type] = appData[state.currentDetail.type].map(item =>
-        item.id === state.currentDetail.id ? { ...item, capa: capaBase64 } : item
-      );
-
-      const saved = await saveData();
-      if (!saved) return;
-
-      openDetail(state.currentDetail.type, state.currentDetail.id);
-      event.target.value = '';
+      return;
     }
 
     function openDetail(type, id) {
