@@ -1,8 +1,7 @@
 {
-  "id": "/smart-cine-v2",
   "name": "Smart Cine",
   "short_name": "Smart Cine",
-  "start_url": "./index.html?v=2",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#050505",

@@ -341,11 +341,6 @@
 onclick="showScreen('inteligente')">Lista Inteligente</button>
 </div>
 
-<div style="margin-top:10px;text-align:center">
-<button type="button" style="padding:14px 20px;font-size:18px;border-radius:16px;background:#161616;color:#d4af37;border:1px solid rgba(212,175,55,.3);font-weight:700"
-onclick="showScreen('backup')">Backup</button>
-</div>
-
     </section>
 
     <section id="filmes" class="screen screen-page">
@@ -369,7 +364,7 @@ onclick="showScreen('backup')">Backup</button>
               </div>
               <div class="field full">
                 <label for="filmesCapa">URL da Capa</label>
-                <input id="filmesCapa" type="url" placeholder="https://exemplo.com/capa.jpg" />
+                <input id="filmesCapa" type="url" placeholder="https://imagem.exemplo.com/capa.jpg" inputmode="url" />
               </div>
               <div class="field full">
                 <label for="filmesSinopse">Sinopse</label>
@@ -381,6 +376,7 @@ onclick="showScreen('backup')">Backup</button>
               </div>
             </div>
             <div class="actions">
+              <button type="button" class="btn-secondary" onclick="buscarNaApi('filmes')">Buscar na API</button>
               <button type="submit" class="btn-primary" id="filmesSubmitBtn">Salvar Filme</button>
               <button type="button" class="btn-secondary" onclick="cancelEdit('filmes')">Cancelar</button>
             </div>
@@ -424,7 +420,7 @@ onclick="showScreen('backup')">Backup</button>
               </div>
               <div class="field full">
                 <label for="seriesCapa">URL da Capa</label>
-                <input id="seriesCapa" type="url" placeholder="https://exemplo.com/capa.jpg" />
+                <input id="seriesCapa" type="url" placeholder="https://imagem.exemplo.com/capa.jpg" inputmode="url" />
               </div>
               <div class="field full">
                 <label for="seriesSinopse">Sinopse</label>
@@ -436,6 +432,7 @@ onclick="showScreen('backup')">Backup</button>
               </div>
             </div>
             <div class="actions">
+              <button type="button" class="btn-secondary" onclick="buscarNaApi('series')">Buscar na API</button>
               <button type="submit" class="btn-primary" id="seriesSubmitBtn">Salvar Série</button>
               <button type="button" class="btn-secondary" onclick="cancelEdit('series')">Cancelar</button>
             </div>
@@ -471,41 +468,6 @@ onclick="showScreen('backup')">Backup</button>
 </section>
 
 
-
-    <section id="backup" class="screen screen-page">
-      <div class="toolbar">
-        <h2 class="screen-title">Backup</h2>
-        <button class="btn-back" onclick="history.back()">← voltar</button>
-      </div>
-
-      <div class="content-grid">
-        <div class="panel">
-          <h3>Segurança dos Dados</h3>
-          <p style="color:#cfcfcf;line-height:1.5;margin-top:0">
-            Exporte um arquivo de backup da sua biblioteca e restaure quando quiser.
-          </p>
-
-          <div class="actions">
-            <button type="button" class="btn-primary" onclick="exportBackup()">Exportar Backup</button>
-            <button type="button" class="btn-secondary" onclick="document.getElementById('backupImportInput').click()">Importar Backup</button>
-          </div>
-
-          <input
-            id="backupImportInput"
-            type="file"
-            accept=".json,application/json"
-            style="display:none"
-            onchange="importBackup(event)"
-          />
-        </div>
-
-        <div class="panel">
-          <h3>Informações</h3>
-          <div id="backupInfo" style="color:#d8d8d8;line-height:1.7"></div>
-        </div>
-      </div>
-    </section>
-
     <section id="detalhe" class="screen screen-page">
       <div class="toolbar">
         <h2 class="screen-title" id="detailScreenTitle">Detalhes</h2>
@@ -515,7 +477,7 @@ onclick="showScreen('backup')">Backup</button>
       <div class="panel">
         <div class="detail-grid">
           <div>
-            <div id="detailCoverWrap" onclick="triggerDetailCoverPicker()" style="cursor:pointer"></div>
+            <div id="detailCoverWrap" onclick="editarUrlCapaDetalhe()" style="cursor:pointer"></div>
           </div>
           <div>
             <h3 id="detailTitle">Título</h3>
@@ -528,13 +490,9 @@ onclick="showScreen('backup')">Backup</button>
 
   </div>
 
-  
   <script>
-    const DB_NAME = 'smart-cine-db';
-    const DB_VERSION = 1;
-    const LEGACY_STORAGE_KEY = 'filmes_series_alcantara_style_v1';
+    const STORAGE_KEY = 'filmes_series_alcantara_style_v1';
 
-    let db = null;
     let appData = { filmes: [], series: [] };
     let state = {
       filmes: { editingId: null, selectedStars: 0, filter: 'all', isSaving: false },
@@ -543,298 +501,120 @@ onclick="showScreen('backup')">Backup</button>
       currentDetail: { type: null, id: null }
     };
 
-    function openDatabase() {
-      return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-        request.onupgradeneeded = (event) => {
-          const database = event.target.result;
-
-          if (!database.objectStoreNames.contains('filmes')) {
-            database.createObjectStore('filmes', { keyPath: 'id' });
-          }
-          if (!database.objectStoreNames.contains('series')) {
-            database.createObjectStore('series', { keyPath: 'id' });
-          }
-          if (!database.objectStoreNames.contains('meta')) {
-            database.createObjectStore('meta', { keyPath: 'key' });
-          }
-        };
-
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error || new Error('Falha ao abrir IndexedDB.'));
-      });
-    }
-
-    function getStore(storeName, mode = 'readonly') {
-      const tx = db.transaction(storeName, mode);
-      return tx.objectStore(storeName);
-    }
-
-    function idbGetMeta(key) {
-      return new Promise((resolve, reject) => {
-        const request = getStore('meta').get(key);
-        request.onsuccess = () => resolve(request.result ? request.result.value : null);
-        request.onerror = () => reject(request.error);
-      });
-    }
-
-    function idbSetMeta(key, value) {
-      return new Promise((resolve, reject) => {
-        const request = getStore('meta', 'readwrite').put({ key, value });
-        request.onsuccess = () => resolve(true);
-        request.onerror = () => reject(request.error);
-      });
-    }
-
-    function idbGetAll(storeName) {
-      return new Promise((resolve, reject) => {
-        const request = getStore(storeName).getAll();
-        request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
-        request.onerror = () => reject(request.error);
-      });
-    }
-
-    function idbReplaceAll(storeName, items) {
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(storeName, 'readwrite');
-        const store = tx.objectStore(storeName);
-
-        const clearReq = store.clear();
-        clearReq.onerror = () => reject(clearReq.error);
-
-        tx.oncomplete = () => resolve(true);
-        tx.onerror = () => reject(tx.error || new Error('Falha ao atualizar banco.'));
-        tx.onabort = () => reject(tx.error || new Error('Operação abortada.'));
-
-        clearReq.onsuccess = () => {
-          (items || []).forEach(item => store.put(item));
-        };
-      });
-    }
-
-    async function migrateLegacyDataIfNeeded() {
-      const migrated = await idbGetMeta('legacyMigrated');
-      if (migrated) return;
-
+    function loadData() {
       try {
-        const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          const filmes = Array.isArray(parsed.filmes) ? parsed.filmes : [];
-          const series = Array.isArray(parsed.series) ? parsed.series : [];
-          if (filmes.length || series.length) {
-            await idbReplaceAll('filmes', filmes);
-            await idbReplaceAll('series', series);
-          }
-        }
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        appData.filmes = Array.isArray(parsed.filmes) ? parsed.filmes : [];
+        appData.series = Array.isArray(parsed.series) ? parsed.series : [];
       } catch (e) {
-        console.error('Erro ao migrar localStorage antigo:', e);
+        console.error('Erro ao carregar dados', e);
       }
-
-      await idbSetMeta('legacyMigrated', true);
     }
 
-    async function loadData() {
+
+    function saveData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    }
+
+    function getTmdbApiKey() {
+      return localStorage.getItem('smart_cine_tmdb_api_key') || '';
+    }
+
+    function salvarTmdbApiKey() {
+      const input = document.getElementById('tmdbApiKey');
+      const apiKey = (input?.value || '').trim();
+      if (!apiKey) {
+        alert('Cole uma chave da API do TMDB.');
+        return;
+      }
+      localStorage.setItem('smart_cine_tmdb_api_key', apiKey);
+      updateBackupInfo();
+      alert('Chave da API salva com sucesso.');
+    }
+
+    function normalizeImageUrl(url) {
+      const value = String(url || '').trim();
+      if (!value) return '';
+      if (/^https?:\/\//i.test(value)) return value;
+      return '';
+    }
+
+    function montarUrlPosterTmdb(path) {
+      if (!path) return '';
+      return `https://image.tmdb.org/t/p/w500${path}`;
+    }
+
+    async function buscarNaApi(type) {
+      const apiKey = getTmdbApiKey();
+      if (!apiKey) {
+        showScreen('backup');
+        setTimeout(() => {
+          document.getElementById('tmdbApiKey')?.focus();
+        }, 120);
+        alert('Salve sua chave da API do TMDB na tela de Backup.');
+        return;
+      }
+
+      const nomeInput = document.getElementById(type + 'Nome');
+      const generoInput = document.getElementById(type + 'Genero');
+      const capaInput = document.getElementById(type + 'Capa');
+      const sinopseInput = document.getElementById(type + 'Sinopse');
+      const titulo = (nomeInput?.value || '').trim();
+
+      if (!titulo) {
+        alert('Digite o título antes de buscar na API.');
+        nomeInput?.focus();
+        return;
+      }
+
+      const formTitle = document.getElementById(type + 'FormTitle');
+      const originalTitle = formTitle ? formTitle.textContent : '';
+      if (formTitle) formTitle.textContent = 'Buscando dados...';
+
       try {
-        const [filmes, series] = await Promise.all([
-          idbGetAll('filmes'),
-          idbGetAll('series')
-        ]);
-        appData.filmes = filmes;
-        appData.series = series;
-      } catch (e) {
-        console.error('Erro ao carregar dados do banco local:', e);
-        appData = { filmes: [], series: [] };
-      }
-    }
+        const endpoint = type === 'filmes' ? 'movie' : 'tv';
+        const searchUrl = `https://api.themoviedb.org/3/search/${endpoint}?api_key=${encodeURIComponent(apiKey)}&language=pt-BR&query=${encodeURIComponent(titulo)}`;
+        const searchResponse = await fetch(searchUrl);
+        if (!searchResponse.ok) throw new Error('Falha na busca.');
+        const searchData = await searchResponse.json();
+        const first = Array.isArray(searchData.results) ? searchData.results[0] : null;
 
-    async function saveData() {
-      try {
-        await Promise.all([
-          idbReplaceAll('filmes', appData.filmes),
-          idbReplaceAll('series', appData.series),
-          idbSetMeta('lastSavedAt', new Date().toISOString())
-        ]);
-        return true;
-      } catch (error) {
-        console.error('Erro ao salvar no IndexedDB:', error);
-        alert('Não foi possível gravar os dados no banco local agora.');
-        return false;
-      }
-    }
-
-    function getBackupPayload() {
-      return {
-        app: 'Smart Cine',
-        version: 2,
-        storage: 'indexeddb',
-        exportedAt: new Date().toISOString(),
-        data: {
-          filmes: Array.isArray(appData.filmes) ? appData.filmes : [],
-          series: Array.isArray(appData.series) ? appData.series : []
-        }
-      };
-    }
-
-    async function updateBackupInfo() {
-      const info = document.getElementById('backupInfo');
-      if (!info) return;
-
-      const totalFilmes = Array.isArray(appData.filmes) ? appData.filmes.length : 0;
-      const totalSeries = Array.isArray(appData.series) ? appData.series.length : 0;
-      const total = totalFilmes + totalSeries;
-      const lastSavedAt = await idbGetMeta('lastSavedAt');
-      const lastSavedText = lastSavedAt ? new Date(lastSavedAt).toLocaleString('pt-BR') : 'Ainda não salvo';
-
-      info.innerHTML = `
-        <div><strong>Filmes:</strong> ${totalFilmes}</div>
-        <div><strong>Séries:</strong> ${totalSeries}</div>
-        <div><strong>Total cadastrado:</strong> ${total}</div>
-        <div><strong>Armazenamento:</strong> IndexedDB local</div>
-        <div><strong>Backup JSON:</strong> Ativo</div>
-        <div><strong>Último salvamento:</strong> ${lastSavedText}</div>
-      `;
-    }
-
-    function exportBackup() {
-      try {
-        const payload = getBackupPayload();
-        const json = JSON.stringify(payload, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-
-        const now = new Date();
-        const pad = n => String(n).padStart(2, '0');
-        const fileName = `smart-cine-backup-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}.json`;
-
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      } catch (error) {
-        console.error('Erro ao exportar backup:', error);
-        alert('Não foi possível exportar o backup.');
-      }
-    }
-
-    async function importBackup(event) {
-      const file = event.target.files && event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-
-      reader.onload = async function(e) {
-        try {
-          const raw = e.target.result;
-          const parsed = JSON.parse(raw);
-
-          let filmes = [];
-          let series = [];
-
-          if (parsed && parsed.data) {
-            filmes = Array.isArray(parsed.data.filmes) ? parsed.data.filmes : [];
-            series = Array.isArray(parsed.data.series) ? parsed.data.series : [];
-          } else {
-            filmes = Array.isArray(parsed.filmes) ? parsed.filmes : [];
-            series = Array.isArray(parsed.series) ? parsed.series : [];
-          }
-
-          if (!Array.isArray(filmes) || !Array.isArray(series)) {
-            throw new Error('Estrutura inválida');
-          }
-
-          const confirmar = confirm(
-            `Deseja restaurar este backup?\n\nFilmes: ${filmes.length}\nSéries: ${series.length}\n\nOs dados atuais serão substituídos.`
-          );
-
-          if (!confirmar) {
-            event.target.value = '';
-            return;
-          }
-
-          appData.filmes = filmes;
-          appData.series = series;
-
-          const saved = await saveData();
-          if (!saved) return;
-
-          clearForm('filmes');
-          clearForm('series');
-          renderAll();
-
-          alert('Backup restaurado com sucesso.');
-        } catch (error) {
-          console.error('Erro ao importar backup:', error);
-          alert('Arquivo de backup inválido ou corrompido.');
-        } finally {
-          event.target.value = '';
-        }
-      };
-
-      reader.onerror = function() {
-        alert('Erro ao ler o arquivo de backup.');
-        event.target.value = '';
-      };
-
-      reader.readAsText(file);
-    }
-
-    function compressImageFile(file, options = {}) {
-      const {
-        maxWidth = 900,
-        maxHeight = 1350,
-        qualityStart = 0.82,
-        qualityMin = 0.58,
-        maxBytes = 350 * 1024
-      } = options;
-
-      return new Promise((resolve, reject) => {
-        if (!file || !file.type.startsWith('image/')) {
-          resolve('');
+        if (!first) {
+          alert('Nenhum resultado encontrado na API para esse título.');
           return;
         }
 
-        const reader = new FileReader();
-        reader.onload = () => {
-          const img = new Image();
-          img.onload = () => {
-            let width = img.width;
-            let height = img.height;
+        const detailsUrl = `https://api.themoviedb.org/3/${endpoint}/${first.id}?api_key=${encodeURIComponent(apiKey)}&language=pt-BR`;
+        const detailsResponse = await fetch(detailsUrl);
+        if (!detailsResponse.ok) throw new Error('Falha ao obter detalhes.');
+        const details = await detailsResponse.json();
 
-            const ratio = Math.min(maxWidth / width, maxHeight / height, 1);
-            width = Math.round(width * ratio);
-            height = Math.round(height * ratio);
+        if (nomeInput && !nomeInput.value.trim()) {
+          nomeInput.value = details.title || details.name || titulo;
+        }
 
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
+        if (generoInput) {
+          const generos = Array.isArray(details.genres) ? details.genres.map(g => g.name).filter(Boolean).join(', ') : '';
+          if (generos) generoInput.value = generos;
+        }
 
-            const ctx = canvas.getContext('2d', { alpha: false });
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, width, height);
-            ctx.drawImage(img, 0, 0, width, height);
+        if (sinopseInput && details.overview) {
+          sinopseInput.value = details.overview;
+        }
 
-            let quality = qualityStart;
-            let dataUrl = canvas.toDataURL('image/jpeg', quality);
+        if (capaInput && details.poster_path) {
+          capaInput.value = montarUrlPosterTmdb(details.poster_path);
+        }
 
-            while (dataUrl.length > maxBytes * 1.37 && quality > qualityMin) {
-              quality = Math.max(quality - 0.06, qualityMin);
-              dataUrl = canvas.toDataURL('image/jpeg', quality);
-            }
-
-            resolve(dataUrl);
-          };
-          img.onerror = () => reject(new Error('Falha ao processar imagem.'));
-          img.src = reader.result;
-        };
-        reader.onerror = () => reject(reader.error || new Error('Falha ao ler imagem.'));
-        reader.readAsDataURL(file);
-      });
+        alert('Dados preenchidos pela API.');
+      } catch (error) {
+        console.error('Erro ao buscar na API:', error);
+        alert('Não foi possível buscar dados no TMDB agora.');
+      } finally {
+        if (formTitle) formTitle.textContent = originalTitle;
+      }
     }
 
     let navigationStack = ['dashboard'];
@@ -923,7 +703,7 @@ onclick="showScreen('backup')">Backup</button>
     function clearForm(type) {
       document.getElementById(type + 'Nome').value = '';
       document.getElementById(type + 'Genero').value = '';
-      document.getElementById(type + 'Capa').value = '';
+      document.getElementById(type + 'Capa').value = item.capa || '';
       document.getElementById(type + 'Sinopse').value = '';
       state[type].selectedStars = 0;
       state[type].editingId = null;
@@ -946,69 +726,34 @@ onclick="showScreen('backup')">Backup</button>
       submitBtn.textContent = 'Salvando...';
 
       try {
-        const nomeInput = document.getElementById(type + 'Nome');
-        const generoInput = document.getElementById(type + 'Genero');
-        const sinopseInput = document.getElementById(type + 'Sinopse');
-        const fileInput = document.getElementById(type + 'Capa');
-
-        const nome = nomeInput.value.trim();
-        const genero = generoInput.value.trim();
-        const sinopse = sinopseInput.value.trim();
+        const nome = document.getElementById(type + 'Nome').value.trim();
+        const genero = document.getElementById(type + 'Genero').value.trim();
+        const sinopse = document.getElementById(type + 'Sinopse').value.trim();
+        const capaInput = document.getElementById(type + 'Capa');
         const editingId = state[type].editingId || null;
         const currentItem = editingId ? appData[type].find(item => item.id === editingId) : null;
-        let capa = currentItem?.capa || '';
+        const capaInformada = normalizeImageUrl(capaInput?.value || '');
+        const capa = capaInformada || currentItem?.capa || '';
 
         if (!nome || !genero) {
           alert('Preencha nome e gênero.');
           return;
         }
 
-        const capaInputValue = fileInput ? fileInput.value.trim() : '';
-        if (capaInputValue) {
-          capa = capaInputValue;
-        }
-
         const estrelas = Number(state[type].selectedStars) || 0;
         const estrelasValidadas = (estrelas >= 1 && estrelas <= 5) ? estrelas : 0;
 
-        const novoItem = editingId
-          ? {
-              ...currentItem,
-              nome,
-              genero,
-              capa,
-              sinopse,
-              estrelas: estrelasValidadas,
-              assistido: currentItem?.assistido === true
-            }
-          : {
-              id: generateId(),
-              nome,
-              genero,
-              capa,
-              sinopse,
-              estrelas: estrelasValidadas,
-              assistido: false
-            };
-
-        const previousItems = appData[type].slice();
-
         if (editingId) {
-          const index = appData[type].findIndex(item => item.id === editingId);
-          if (index === -1) {
-            throw new Error('Item não encontrado para edição.');
-          }
-          appData[type][index] = novoItem;
+          appData[type] = appData[type].map(item =>
+            item.id === editingId
+              ? { ...item, nome, genero, capa, sinopse, estrelas: estrelasValidadas, assistido: item.assistido || false }
+              : item
+          );
         } else {
-          appData[type].unshift(novoItem);
+          appData[type].unshift({ id: generateId(), nome, genero, capa, sinopse, estrelas: estrelasValidadas, assistido: false });
         }
 
-        const saved = await saveData();
-        if (!saved) {
-          appData[type] = previousItems;
-          return;
-        }
-
+        saveData();
         clearForm(type);
         renderAll();
       } catch (error) {
@@ -1025,31 +770,31 @@ onclick="showScreen('backup')">Backup</button>
       const item = appData[type].find(entry => entry.id === id);
       if (!item) return;
       state[type].editingId = id;
-      document.getElementById(type + 'Nome').value = item.nome || '';
-      document.getElementById(type + 'Genero').value = item.genero || '';
+      document.getElementById(type + 'Nome').value = item.nome;
+      document.getElementById(type + 'Genero').value = item.genero;
       document.getElementById(type + 'Capa').value = item.capa || '';
       document.getElementById(type + 'Sinopse').value = item.sinopse || '';
-      state[type].selectedStars = Number(item.estrelas) || 0;
+      state[type].selectedStars = item.estrelas;
       updateStarsUI(type);
       updateFormHeader(type);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    async function deleteItem(type, id) {
+    function deleteItem(type, id) {
       if (!confirm('Deseja excluir este item?')) return;
       appData[type] = appData[type].filter(item => item.id !== id);
       if (state[type].editingId === id) clearForm(type);
-      await saveData();
+      saveData();
       renderAll();
     }
 
     function setFilter(type, filter) {
       state[type].filter = filter;
-      ['All', '5', '4', 'Assistido', 'Pendente'].forEach(suffix => {
+      ['All', '5', '4'].forEach(suffix => {
         const btn = document.getElementById(type + 'Filter' + suffix);
         if (btn) btn.classList.remove('active');
       });
-      const map = { all: 'All', '5': '5', '4+': '4', assistido: 'Assistido', pendente: 'Pendente' };
+      const map = { all: 'All', '5': '5', '4+': '4' };
       const active = document.getElementById(type + 'Filter' + map[filter]);
       if (active) active.classList.add('active');
       renderList(type);
@@ -1065,7 +810,8 @@ onclick="showScreen('backup')">Backup</button>
         if (state[type].filter === '4+') filterOk = Number(item.estrelas) >= 4;
         if (state[type].filter === 'assistido') filterOk = item.assistido === true;
         if (state[type].filter === 'pendente') filterOk = !item.assistido;
-        return searchOk && filterOk;
+        let final = searchOk && filterOk;
+        return final;
       });
     }
 
@@ -1082,6 +828,7 @@ onclick="showScreen('backup')">Backup</button>
       const list = document.getElementById(type + 'List');
       const label = type === 'filmes' ? 'filme' : 'série';
       let items = getFilteredItems(type);
+      // ranking automático por nota
       items = items.sort((a,b)=> (b.estrelas||0) - (a.estrelas||0));
 
       if (!items.length) {
@@ -1109,29 +856,22 @@ onclick="showScreen('backup')">Backup</button>
       `).join('');
     }
 
-    function triggerDetailCoverPicker() {
+    
+
+    function editarUrlCapaDetalhe() {
       if (!state.currentDetail.type || !state.currentDetail.id) return;
-
-      const currentItem = appData[state.currentDetail.type].find(item => item.id === state.currentDetail.id);
-      const currentUrl = currentItem?.capa || '';
-      const novaUrl = prompt('Cole a URL da capa:', currentUrl);
-
+      const item = appData[state.currentDetail.type].find(entry => entry.id === state.currentDetail.id);
+      const currentUrl = item?.capa || '';
+      const novaUrl = prompt('Cole a URL direta da capa:', currentUrl);
       if (novaUrl === null) return;
 
-      const urlFinal = novaUrl.trim();
-
-      appData[state.currentDetail.type] = appData[state.currentDetail.type].map(item =>
-        item.id === state.currentDetail.id ? { ...item, capa: urlFinal } : item
+      const urlNormalizada = normalizeImageUrl(novaUrl);
+      appData[state.currentDetail.type] = appData[state.currentDetail.type].map(entry =>
+        entry.id === state.currentDetail.id ? { ...entry, capa: urlNormalizada } : entry
       );
 
-      saveData().then(saved => {
-        if (!saved) return;
-        openDetail(state.currentDetail.type, state.currentDetail.id);
-      });
-    }
-
-    async function handleDetailCoverChange(event) {
-      return;
+      saveData();
+      openDetail(state.currentDetail.type, state.currentDetail.id);
     }
 
     function openDetail(type, id) {
@@ -1173,46 +913,45 @@ onclick="showScreen('backup')">Backup</button>
       history.back();
     }
 
-    async function toggleAssistido(type, id) {
-      appData[type] = appData[type].map(item =>
-        item.id === id ? { ...item, assistido: !item.assistido } : item
-      );
-      const saved = await saveData();
-      if (!saved) return;
-      renderAll();
-    }
 
-    function renderStats() {
-      const total = appData.filmes.length + appData.series.length;
-      const assistidos = [...appData.filmes, ...appData.series].filter(i=>i.assistido === true).length;
-      const top = [...appData.filmes, ...appData.series].sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).slice(0,5);
+function toggleAssistido(type, id) {
+  appData[type] = appData[type].map(item =>
+    item.id === id ? { ...item, assistido: !item.assistido } : item
+  );
+  saveData();
+  renderAll();
+}
 
-      let html = `<div>Total: ${total} | Assistidos: ${assistidos}</div>`;
-      if(top.length){
-        html += '<br><strong>TOP FILMES</strong><br>';
-        const topFilmes = appData.filmes.slice().sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).slice(0,5);
-        html += topFilmes.map((i,idx)=>{
-          let estrelas = '★'.repeat(i.estrelas||0) + '☆'.repeat(5-(i.estrelas||0));
-          let destaque = idx === 0 ? 'style="color:#d4af37;font-weight:900;text-shadow:0 0 10px #d4af37"' : '';
-          return `<div ${destaque}>${estrelas} ${escapeHtml(i.nome)}</div>`;
-        }).join('');
 
-        html += '<br><br><strong>TOP SÉRIES</strong><br>';
-        const topSeries = appData.series.slice().sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).slice(0,5);
-        html += topSeries.map((i)=>{
-          let estrelas = '★'.repeat(i.estrelas||0) + '☆'.repeat(5-(i.estrelas||0));
-          return `<div>${estrelas} ${escapeHtml(i.nome)}</div>`;
-        }).join('');
-      }
-      document.getElementById('stats').innerHTML = html;
-    }
+function renderStats(){
+  const total = appData.filmes.length + appData.series.length;
+  const assistidos = [...appData.filmes, ...appData.series].filter(i=>i.assistido === true).length;
+  const top = [...appData.filmes, ...appData.series].sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).slice(0,5);
 
-    function renderAll() {
-      updateDashboard();
-      renderStats();
+  let html = `<div>Total: ${total} | Assistidos: ${assistidos}</div>`;
+  if(top.length){
+    html += '<br><strong>TOP FILMES</strong><br>';
+    const topFilmes = appData.filmes.sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).slice(0,5);
+    html += topFilmes.map((i,idx)=>{
+  let estrelas = '★'.repeat(i.estrelas||0) + '☆'.repeat(5-(i.estrelas||0));
+  let destaque = idx === 0 ? 'style="color:#d4af37;font-weight:900;text-shadow:0 0 10px #d4af37"' : '';
+  return `<div ${destaque}>${estrelas} ${i.nome}</div>`;
+}).join('');
+
+    html += '<br><br><strong>TOP SÉRIES</strong><br>';
+    const topSeries = appData.series.sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).slice(0,5);
+    html += topSeries.map((i,idx)=>{
+      let estrelas = '★'.repeat(i.estrelas||0) + '☆'.repeat(5-(i.estrelas||0));
+      return `<div>${estrelas} ${i.nome}</div>`;
+    }).join('');
+  }
+  document.getElementById('stats').innerHTML = html;
+}
+
+function renderAll() {
+      updateDashboard(); renderStats();
       renderList('filmes');
       renderList('series');
-      updateBackupInfo();
     }
 
     document.getElementById('filmesForm').addEventListener('submit', event => handleSubmit('filmes', event));
@@ -1220,24 +959,15 @@ onclick="showScreen('backup')">Backup</button>
     document.getElementById('filmesSearch').addEventListener('input', () => renderList('filmes'));
     document.getElementById('seriesSearch').addEventListener('input', () => renderList('series'));
 
-    async function initApp() {
-      try {
-        db = await openDatabase();
-        await migrateLegacyDataIfNeeded();
-        await loadData();
-      } catch (error) {
-        console.error('Erro ao iniciar banco local:', error);
-        alert('Não foi possível iniciar o banco local do app.');
-      }
+    loadData();
+    createStars('filmesStars', 'filmes');
+    createStars('seriesStars', 'series');
+    clearForm('filmes');
+    clearForm('series');
+    setFilter('filmes', 'all');
+    setFilter('series', 'all');
+    renderAll();
 
-      createStars('filmesStars', 'filmes');
-      createStars('seriesStars', 'series');
-      clearForm('filmes');
-      clearForm('series');
-      setFilter('filmes', 'all');
-      setFilter('series', 'all');
-      renderAll();
-    }
 
     window.addEventListener('popstate', (event) => {
       const targetScreen = event.state?.screen || 'dashboard';
@@ -1254,50 +984,22 @@ onclick="showScreen('backup')">Backup</button>
       activateScreen(targetScreen, true, reverseAnimation);
     });
 
-    let refreshingApp = false;
-
-    window.addEventListener('load', async () => {
+    window.addEventListener('load', () => {
       history.replaceState({ screen: 'dashboard' }, '');
       navigationStack = ['dashboard'];
+    });
 
+
+    window.addEventListener('load', () => {
       const splash = document.getElementById('splashScreen');
       setTimeout(() => splash?.classList.add('hidden'), 1100);
-
-      await initApp();
-
-      if ('serviceWorker' in navigator) {
-        try {
-          const registration = await navigator.serviceWorker.register('./sw.js', { scope: './' });
-
-          if (registration.waiting) {
-            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-          }
-
-          registration.addEventListener('updatefound', () => {
-            const newWorker = registration.installing;
-            if (!newWorker) return;
-
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                newWorker.postMessage({ type: 'SKIP_WAITING' });
-              }
-            });
-          });
-
-          navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (refreshingApp) return;
-            refreshingApp = true;
-            window.location.reload();
-          });
-
-          setInterval(() => {
-            registration.update();
-          }, 60000);
-        } catch (err) {
-          console.log('SW erro:', err);
-        }
-      }
     });
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(err => console.log('SW erro:', err));
+      });
+    }
   </script>
 </body>
 </html>
