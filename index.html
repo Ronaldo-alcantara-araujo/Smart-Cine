@@ -282,7 +282,57 @@
       to { opacity: 1; transform: scale(1) translateY(0); }
     }
 
+    
+    .btn-want { background: linear-gradient(180deg, #6a5308, #3d3004); }
+    .toast {
+      position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%) translateY(20px);
+      background: rgba(10,10,10,.96); color: #f4f4f4; border: 1px solid rgba(212,175,55,.25);
+      border-radius: 14px; padding: 12px 16px; z-index: 10000; opacity: 0; pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease; box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      font-size: 14px;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    
+    .dashboard-summary {
+      display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin: 0 0 18px;
+    }
+    .summary-card {
+      background: linear-gradient(180deg, #0d0d0d 0%, #171717 100%);
+      border:1px solid rgba(212,175,55,.12);
+      border-radius:18px; padding:14px 12px; text-align:center; box-shadow: var(--shadow);
+    }
+    .summary-card .kicker {
+      color:#9f9fb2; font-size:12px; text-transform:uppercase; letter-spacing:1.8px; margin-bottom:4px;
+    }
+    .summary-card .value {
+      font-family:'Teko', sans-serif; font-size:34px; line-height:1; color:var(--gold);
+    }
+    .btn-back, .btn-chip, .btn-secondary, .btn-primary, .btn-list, .dashboard-btn {
+      -webkit-user-select:none; user-select:none;
+    }
+    .dashboard-btn::after {
+      content:""; position:absolute; inset:0; background:linear-gradient(120deg, transparent 0%, rgba(255,255,255,.05) 45%, transparent 70%);
+      transform:translateX(-120%); transition:transform .45s ease;
+    }
+    .dashboard-btn:active::after, .dashboard-btn:hover::after { transform:translateX(120%); }
+    .item { border-left-width: 3px; }
+    .item-status-badge {
+      display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700;
+      text-transform:uppercase; letter-spacing:.8px; border:1px solid rgba(255,255,255,.08); margin-top:8px;
+    }
+    .status-assistido { background:rgba(11,92,39,.18); color:#7de09b; border-color:rgba(11,92,39,.45); }
+    .status-pendente { background:rgba(255,255,255,.04); color:#d7d7d7; }
+    .status-quero { background:rgba(106,83,8,.22); color:#f0cf63; border-color:rgba(106,83,8,.55); }
+    .detail-title-row {
+      display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    }
+    .detail-note {
+      color:#9f9fb2; font-size:13px; letter-spacing:1px; text-transform:uppercase; margin-top:10px;
+    }
+
     @media (max-width: 820px) {
+      .dashboard-summary { grid-template-columns:1fr; }
       .detail-grid { grid-template-columns: 1fr; }
     }
 
@@ -351,10 +401,6 @@
         </button>
       </div>
 
-<div style="margin-top:10px;text-align:center">
-<button type="button" style="padding:14px 20px;font-size:18px;border-radius:16px;background:#161616;color:#d4af37;border:1px solid rgba(212,175,55,.3);font-weight:700"
-onclick="showScreen('inteligente')">Lista Inteligente</button>
-</div>
 
 <div style="margin-top:10px;text-align:center">
 <button type="button" style="padding:14px 20px;font-size:18px;border-radius:16px;background:#161616;color:#d4af37;border:1px solid rgba(212,175,55,.3);font-weight:700"
@@ -390,6 +436,14 @@ onclick="showScreen('backup')">Backup</button>
                 <label>Classificação</label>
                 <div class="stars" id="filmesStars"></div>
               </div>
+              <div class="field full">
+                <label for="filmesStatus">Status</label>
+                <select id="filmesStatus" style="width:100%;padding:13px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:#0b0b0b;color:#fff;font-size:16px;outline:none">
+                  <option value="pendente">Pendente</option>
+                  <option value="quero">Quero assistir</option>
+                  <option value="assistido">Assistido</option>
+                </select>
+              </div>
             </div>
             <div class="actions">
               <button type="button" class="btn-secondary" onclick="buscarNaApi('filmes')">Buscar na API</button>
@@ -403,10 +457,17 @@ onclick="showScreen('backup')">Backup</button>
           <h3>Lista de Filmes</h3>
           <div class="search-row">
             <input id="filmesSearch" type="text" placeholder="Buscar por nome ou gênero..." />
+            <select id="filmesSort" onchange="renderList('filmes')" style="padding:13px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:#0b0b0b;color:#fff;font-size:15px;outline:none">
+              <option value="rating_desc">Nota ↓</option>
+              <option value="recent_desc">Mais recentes</option>
+              <option value="name_asc">Nome A-Z</option>
+              <option value="name_desc">Nome Z-A</option>
+            </select>
             <button class="btn-chip active" id="filmesFilterAll" onclick="setFilter('filmes','all')">Todos</button>
             <button class="btn-chip" id="filmesFilter5" onclick="setFilter('filmes','5')">5★</button>
             <button class="btn-chip" id="filmesFilter4" onclick="setFilter('filmes','4+')">4★+</button>
             <button class="btn-chip" id="filmesFilterAssistido" onclick="setFilter('filmes','assistido')">Assistidos</button>
+            <button class="btn-chip" id="filmesFilterQuero" onclick="setFilter('filmes','quero')">Quero assistir</button>
             <button class="btn-chip" id="filmesFilterPendente" onclick="setFilter('filmes','pendente')">Pendentes</button>
           </div>
           <div class="list" id="filmesList"></div>
@@ -442,6 +503,14 @@ onclick="showScreen('backup')">Backup</button>
                 <label>Classificação</label>
                 <div class="stars" id="seriesStars"></div>
               </div>
+              <div class="field full">
+                <label for="seriesStatus">Status</label>
+                <select id="seriesStatus" style="width:100%;padding:13px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:#0b0b0b;color:#fff;font-size:16px;outline:none">
+                  <option value="pendente">Pendente</option>
+                  <option value="quero">Quero assistir</option>
+                  <option value="assistido">Assistido</option>
+                </select>
+              </div>
             </div>
             <div class="actions">
               <button type="button" class="btn-secondary" onclick="buscarNaApi('series')">Buscar na API</button>
@@ -455,10 +524,17 @@ onclick="showScreen('backup')">Backup</button>
           <h3>Lista de Séries</h3>
           <div class="search-row">
             <input id="seriesSearch" type="text" placeholder="Buscar por nome ou gênero..." />
+            <select id="seriesSort" onchange="renderList('series')" style="padding:13px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:#0b0b0b;color:#fff;font-size:15px;outline:none">
+              <option value="rating_desc">Nota ↓</option>
+              <option value="recent_desc">Mais recentes</option>
+              <option value="name_asc">Nome A-Z</option>
+              <option value="name_desc">Nome Z-A</option>
+            </select>
             <button class="btn-chip active" id="seriesFilterAll" onclick="setFilter('series','all')">Todos</button>
             <button class="btn-chip" id="seriesFilter5" onclick="setFilter('series','5')">5★</button>
             <button class="btn-chip" id="seriesFilter4" onclick="setFilter('series','4+')">4★+</button>
             <button class="btn-chip" id="seriesFilterAssistido" onclick="setFilter('series','assistido')">Assistidos</button>
+            <button class="btn-chip" id="seriesFilterQuero" onclick="setFilter('series','quero')">Quero assistir</button>
             <button class="btn-chip" id="seriesFilterPendente" onclick="setFilter('series','pendente')">Pendentes</button>
           </div>
           <div class="list" id="seriesList"></div>
@@ -467,18 +543,6 @@ onclick="showScreen('backup')">Backup</button>
 
     </section>
   
-<section id="inteligente" class="screen screen-page">
-  <div class="toolbar">
-    <h2 class="screen-title">Lista Inteligente</h2>
-    <button class="btn-back" onclick="history.back()">← voltar</button>
-  </div>
-
-  <div class="panel" style="text-align:center">
-    <h3>Resumo do Sistema</h3>
-    <div id="stats"></div>
-  </div>
-</section>
-
 
 
     <section id="backup" class="screen screen-page">
@@ -532,12 +596,16 @@ onclick="showScreen('backup')">Backup</button>
       <div class="panel">
         <div class="detail-grid">
           <div>
-            <div id="detailCoverWrap"></div>
+            <div id="detailCoverWrap" onclick="triggerDetailCoverPicker()" style="cursor:pointer"></div>
+            <input id="detailCoverInput" type="file" accept="image/*" style="display:none" onchange="handleDetailCoverChange(event)" />
           </div>
           <div>
-            <h3 id="detailTitle">Título</h3>
+            <div class="detail-title-row">
+              <h3 id="detailTitle">Título</h3>
+            </div>
             <div class="detail-meta" id="detailMeta"></div>
             <div class="detail-synopsis" id="detailSynopsis"></div>
+            <div class="detail-note">Toque na capa para trocar a imagem.</div>
           </div>
         </div>
       </div>
@@ -546,6 +614,8 @@ onclick="showScreen('backup')">Backup</button>
   </div>
 
   
+  <div id="toast" class="toast"></div>
+
   <script>
     const DB_NAME = 'smart-cine-db';
     const DB_VERSION = 1;
@@ -554,11 +624,20 @@ onclick="showScreen('backup')">Backup</button>
     let db = null;
     let appData = { filmes: [], series: [] };
     let state = {
-      filmes: { editingId: null, selectedStars: 0, filter: 'all', isSaving: false, fetchedCapa: '' },
-      series: { editingId: null, selectedStars: 0, filter: 'all', isSaving: false, fetchedCapa: '' },
+      filmes: { editingId: null, selectedStars: 0, filter: 'all', sort: 'rating_desc', isSaving: false, fetchedCapa: '', selectedStatus: 'pendente' },
+      series: { editingId: null, selectedStars: 0, filter: 'all', sort: 'rating_desc', isSaving: false, fetchedCapa: '', selectedStatus: 'pendente' },
       detailReturnTo: 'dashboard',
       currentDetail: { type: null, id: null }
     };
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      if (!toast) return;
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => toast.classList.remove('show'), 1800);
+    }
 
     function openDatabase() {
       return new Promise((resolve, reject) => {
@@ -732,14 +811,31 @@ onclick="showScreen('backup')">Backup</button>
         const searchResponse = await fetch(searchUrl);
         if (!searchResponse.ok) throw new Error('Falha na busca.');
         const searchData = await searchResponse.json();
-        const first = Array.isArray(searchData.results) ? searchData.results[0] : null;
+        const results = Array.isArray(searchData.results) ? searchData.results.slice(0, 5) : [];
+        const first = results[0] || null;
 
         if (!first) {
           alert('Nenhum resultado encontrado na API para esse título.');
           return;
         }
 
-        const detailsUrl = `https://api.themoviedb.org/3/${endpoint}/${first.id}?api_key=${encodeURIComponent(apiKey)}&language=pt-BR`;
+        let chosen = first;
+        if (results.length > 1) {
+          const optionsText = results.map((item, index) => {
+            const title = item.title || item.name || 'Sem título';
+            const yearBase = item.release_date || item.first_air_date || '';
+            const year = yearBase ? String(yearBase).slice(0, 4) : '----';
+            return `${index + 1} - ${title} (${year})`;
+          }).join('\n');
+
+          const pick = window.prompt(`Escolha o resultado desejado:\n\n${optionsText}\n\nDigite um número de 1 a ${results.length}.`, '1');
+          const pickedIndex = Number(pick) - 1;
+          if (!Number.isNaN(pickedIndex) && results[pickedIndex]) {
+            chosen = results[pickedIndex];
+          }
+        }
+
+        const detailsUrl = `https://api.themoviedb.org/3/${endpoint}/${chosen.id}?api_key=${encodeURIComponent(apiKey)}&language=pt-BR`;
         const detailsResponse = await fetch(detailsUrl);
         if (!detailsResponse.ok) throw new Error('Falha ao obter detalhes.');
         const details = await detailsResponse.json();
@@ -871,7 +967,7 @@ onclick="showScreen('backup')">Backup</button>
           clearForm('series');
           renderAll();
 
-          alert('Backup restaurado com sucesso.');
+          showToast('Backup restaurado com sucesso');
         } catch (error) {
           console.error('Erro ao importar backup:', error);
           alert('Arquivo de backup inválido ou corrompido.');
@@ -1006,6 +1102,19 @@ onclick="showScreen('backup')">Backup</button>
     function updateDashboard() {
       document.getElementById('countFilmes').textContent = appData.filmes.length;
       document.getElementById('countSeries').textContent = appData.series.length;
+
+      const allItems = [...appData.filmes, ...appData.series];
+      const total = allItems.length;
+      const assistidos = allItems.filter(item => (item.status || (item.assistido ? 'assistido' : 'pendente')) === 'assistido').length;
+      const quero = allItems.filter(item => (item.status || '') === 'quero').length;
+
+      const totalEl = document.getElementById('summaryTotal');
+      const assistidosEl = document.getElementById('summaryAssistidos');
+      const queroEl = document.getElementById('summaryQuero');
+
+      if (totalEl) totalEl.textContent = total;
+      if (assistidosEl) assistidosEl.textContent = assistidos;
+      if (queroEl) queroEl.textContent = quero;
     }
 
     function updateFormHeader(type) {
@@ -1023,6 +1132,7 @@ onclick="showScreen('backup')">Backup</button>
       document.getElementById(type + 'Nome').value = '';
       document.getElementById(type + 'Genero').value = '';
       document.getElementById(type + 'Sinopse').value = '';
+      document.getElementById(type + 'Status').value = 'pendente';
       state[type].selectedStars = 0;
       state[type].editingId = null;
       state[type].fetchedCapa = '';
@@ -1052,6 +1162,7 @@ onclick="showScreen('backup')">Backup</button>
         const nome = nomeInput.value.trim();
         const genero = generoInput.value.trim();
         const sinopse = sinopseInput.value.trim();
+        const status = document.getElementById(type + 'Status').value || 'pendente';
         const editingId = state[type].editingId || null;
         const currentItem = editingId ? appData[type].find(item => item.id === editingId) : null;
         const capa = state[type].fetchedCapa || currentItem?.capa || '';
@@ -1072,7 +1183,9 @@ onclick="showScreen('backup')">Backup</button>
               capa,
               sinopse,
               estrelas: estrelasValidadas,
-              assistido: currentItem?.assistido === true
+              status,
+              assistido: status === 'assistido',
+              createdAt: currentItem?.createdAt || new Date().toISOString()
             }
           : {
               id: generateId(),
@@ -1081,7 +1194,9 @@ onclick="showScreen('backup')">Backup</button>
               capa,
               sinopse,
               estrelas: estrelasValidadas,
-              assistido: false
+              status,
+              assistido: status === 'assistido',
+              createdAt: new Date().toISOString()
             };
 
         const previousItems = appData[type].slice();
@@ -1104,6 +1219,7 @@ onclick="showScreen('backup')">Backup</button>
 
         clearForm(type);
         renderAll();
+        showToast(type === 'filmes' ? 'Filme salvo com sucesso' : 'Série salva com sucesso');
       } catch (error) {
         console.error('Erro ao salvar item:', error);
         alert('Não foi possível salvar agora.');
@@ -1121,6 +1237,7 @@ onclick="showScreen('backup')">Backup</button>
       document.getElementById(type + 'Nome').value = item.nome || '';
       document.getElementById(type + 'Genero').value = item.genero || '';
       document.getElementById(type + 'Sinopse').value = item.sinopse || '';
+      document.getElementById(type + 'Status').value = item.status || (item.assistido ? 'assistido' : 'pendente');
       state[type].selectedStars = Number(item.estrelas) || 0;
       state[type].fetchedCapa = item.capa || '';
       updateStarsUI(type);
@@ -1134,15 +1251,16 @@ onclick="showScreen('backup')">Backup</button>
       if (state[type].editingId === id) clearForm(type);
       await saveData();
       renderAll();
+      showToast('Item excluído com sucesso');
     }
 
     function setFilter(type, filter) {
       state[type].filter = filter;
-      ['All', '5', '4', 'Assistido', 'Pendente'].forEach(suffix => {
+      ['All', '5', '4', 'Assistido', 'Quero', 'Pendente'].forEach(suffix => {
         const btn = document.getElementById(type + 'Filter' + suffix);
         if (btn) btn.classList.remove('active');
       });
-      const map = { all: 'All', '5': '5', '4+': '4', assistido: 'Assistido', pendente: 'Pendente' };
+      const map = { all: 'All', '5': '5', '4+': '4', assistido: 'Assistido', quero: 'Quero', pendente: 'Pendente' };
       const active = document.getElementById(type + 'Filter' + map[filter]);
       if (active) active.classList.add('active');
       renderList(type);
@@ -1156,8 +1274,9 @@ onclick="showScreen('backup')">Backup</button>
         let filterOk = true;
         if (state[type].filter === '5') filterOk = Number(item.estrelas) === 5;
         if (state[type].filter === '4+') filterOk = Number(item.estrelas) >= 4;
-        if (state[type].filter === 'assistido') filterOk = item.assistido === true;
-        if (state[type].filter === 'pendente') filterOk = !item.assistido;
+        if (state[type].filter === 'assistido') filterOk = (item.status || (item.assistido ? 'assistido' : 'pendente')) === 'assistido';
+        if (state[type].filter === 'quero') filterOk = (item.status || '') === 'quero';
+        if (state[type].filter === 'pendente') filterOk = (item.status || (item.assistido ? 'assistido' : 'pendente')) === 'pendente';
         return searchOk && filterOk;
       });
     }
@@ -1171,11 +1290,54 @@ onclick="showScreen('backup')">Backup</button>
         .replace(/'/g, '&#039;');
     }
 
+    function getSortedItems(type, items) {
+      const sortValue = document.getElementById(type + 'Sort')?.value || state[type].sort || 'rating_desc';
+      state[type].sort = sortValue;
+      const sorted = items.slice();
+
+      if (sortValue === 'name_asc') {
+        sorted.sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+      } else if (sortValue === 'name_desc') {
+        sorted.sort((a, b) => String(b.nome || '').localeCompare(String(a.nome || ''), 'pt-BR'));
+      } else if (sortValue === 'recent_desc') {
+        sorted.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      } else {
+        sorted.sort((a, b) => (b.estrelas || 0) - (a.estrelas || 0));
+      }
+
+      return sorted;
+    }
+
+    function triggerDetailCoverPicker() {
+      const input = document.getElementById('detailCoverInput');
+      if (input) input.click();
+    }
+
+    async function handleDetailCoverChange(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file || !state.currentDetail.type || !state.currentDetail.id) return;
+
+      try {
+        const capaBase64 = await compressImageFile(file);
+        appData[state.currentDetail.type] = appData[state.currentDetail.type].map(item =>
+          item.id === state.currentDetail.id ? { ...item, capa: capaBase64 } : item
+        );
+        const saved = await saveData();
+        if (!saved) return;
+        openDetail(state.currentDetail.type, state.currentDetail.id);
+      } catch (error) {
+        console.error('Erro ao atualizar capa:', error);
+        alert('Não foi possível atualizar a capa.');
+      } finally {
+        event.target.value = '';
+      }
+    }
+
     function renderList(type) {
       const list = document.getElementById(type + 'List');
       const label = type === 'filmes' ? 'filme' : 'série';
       let items = getFilteredItems(type);
-      items = items.sort((a,b)=> (b.estrelas||0) - (a.estrelas||0));
+      items = getSortedItems(type, items);
 
       if (!items.length) {
         list.innerHTML = `<div class="empty">Nenhum ${label} encontrado.</div>`;
@@ -1189,13 +1351,17 @@ onclick="showScreen('backup')">Backup</button>
             <div class="item-meta">
               <span><strong>Gênero:</strong> ${escapeHtml(item.genero)}</span>
               <span><strong>Nota:</strong> ${Number(item.estrelas)}/5</span>
-              <span><strong>Status:</strong> ${item.assistido ? 'Assistido' : 'Pendente'}</span>
+              <span><strong>Status:</strong> ${item.status === 'quero' ? 'Quero assistir' : (item.assistido ? 'Assistido' : 'Pendente')}</span>
             </div>
             <div class="item-stars">${renderStars(Number(item.estrelas))}</div>
+            <div class="item-status-badge ${item.status === 'quero' ? 'status-quero' : (item.assistido ? 'status-assistido' : 'status-pendente')}">
+              ${item.status === 'quero' ? 'Quero assistir' : (item.assistido ? 'Assistido' : 'Pendente')}
+            </div>
           </div>
           <div class="item-actions">
             <button class="btn-list btn-edit" onclick="event.stopPropagation(); editItem('${type}','${item.id}')">Editar</button>
             <button class="btn-list btn-secondary" onclick="event.stopPropagation(); toggleAssistido('${type}','${item.id}')">${item.assistido ? 'Desmarcar' : 'Assistido'}</button>
+            <button class="btn-list btn-want" onclick="event.stopPropagation(); marcarQueroAssistir('${type}','${item.id}')">Quero assistir</button>
             <button class="btn-list btn-delete" onclick="event.stopPropagation(); deleteItem('${type}','${item.id}')">Excluir</button>
           </div>
         </div>
@@ -1213,21 +1379,23 @@ onclick="showScreen('backup')">Backup</button>
 
       const notaNumero = Number(item.estrelas) || 0;
       const notaTexto = notaNumero > 0 ? `${renderStars(notaNumero)} (${notaNumero}/5)` : 'Não classificado';
-      const statusTexto = item.assistido ? 'Assistido' : 'Pendente';
+      const statusTexto = item.status === 'quero' ? 'Quero assistir' : (item.assistido ? 'Assistido' : 'Pendente');
 
       if (item.capa) {
         document.getElementById('detailCoverWrap').innerHTML =
           `<img class="detail-cover" src="${escapeHtml(item.capa)}" alt="${escapeHtml(item.nome)}" onerror="this.outerHTML='<div class=&quot;detail-cover-fallback&quot;>Sem Capa</div>'">`;
       } else {
         document.getElementById('detailCoverWrap').innerHTML =
-          `<div class="detail-cover-fallback">Sem Capa</div>`;
+          `<div class="detail-cover-fallback">Toque para adicionar capa</div>`;
       }
 
+      const addedAt = item.createdAt ? new Date(item.createdAt).toLocaleDateString('pt-BR') : '-';
       document.getElementById('detailMeta').innerHTML = `
         <div class="detail-pill"><strong>Tipo:</strong> ${type === 'filmes' ? 'Filme' : 'Série'}</div>
         <div class="detail-pill"><strong>Gênero:</strong> ${escapeHtml(item.genero || '-')}</div>
         <div class="detail-pill"><strong>Status:</strong> ${statusTexto}</div>
         <div class="detail-pill"><strong>Nota:</strong> ${notaTexto}</div>
+        <div class="detail-pill"><strong>Adicionado:</strong> ${addedAt}</div>
       `;
 
       document.getElementById('detailSynopsis').innerHTML = item.sinopse
@@ -1242,42 +1410,34 @@ onclick="showScreen('backup')">Backup</button>
     }
 
     async function toggleAssistido(type, id) {
+      appData[type] = appData[type].map(item => {
+        if (item.id !== id) return item;
+        const nextAssistido = !(item.assistido === true && item.status === 'assistido');
+        return { ...item, assistido: nextAssistido, status: nextAssistido ? 'assistido' : 'pendente' };
+      });
+      const saved = await saveData();
+      if (!saved) return;
+      renderAll();
+      showToast('Status atualizado');
+    }
+
+    async function marcarQueroAssistir(type, id) {
       appData[type] = appData[type].map(item =>
-        item.id === id ? { ...item, assistido: !item.assistido } : item
+        item.id === id ? { ...item, assistido: false, status: 'quero' } : item
       );
       const saved = await saveData();
       if (!saved) return;
       renderAll();
+      showToast('Marcado como quero assistir');
     }
 
     function renderStats() {
-      const total = appData.filmes.length + appData.series.length;
-      const assistidos = [...appData.filmes, ...appData.series].filter(i=>i.assistido === true).length;
-      const top = [...appData.filmes, ...appData.series].sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).slice(0,5);
-
-      let html = `<div>Total: ${total} | Assistidos: ${assistidos}</div>`;
-      if(top.length){
-        html += '<br><strong>TOP FILMES</strong><br>';
-        const topFilmes = appData.filmes.slice().sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).slice(0,5);
-        html += topFilmes.map((i,idx)=>{
-          let estrelas = '★'.repeat(i.estrelas||0) + '☆'.repeat(5-(i.estrelas||0));
-          let destaque = idx === 0 ? 'style="color:#d4af37;font-weight:900;text-shadow:0 0 10px #d4af37"' : '';
-          return `<div ${destaque}>${estrelas} ${escapeHtml(i.nome)}</div>`;
-        }).join('');
-
-        html += '<br><br><strong>TOP SÉRIES</strong><br>';
-        const topSeries = appData.series.slice().sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).slice(0,5);
-        html += topSeries.map((i)=>{
-          let estrelas = '★'.repeat(i.estrelas||0) + '☆'.repeat(5-(i.estrelas||0));
-          return `<div>${estrelas} ${escapeHtml(i.nome)}</div>`;
-        }).join('');
-      }
-      document.getElementById('stats').innerHTML = html;
+      const stats = document.getElementById('stats');
+      if (stats) stats.innerHTML = '';
     }
 
     function renderAll() {
       updateDashboard();
-      renderStats();
       renderList('filmes');
       renderList('series');
       updateBackupInfo();
