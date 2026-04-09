@@ -402,9 +402,11 @@
       </div>
 
 
-<div style="margin-top:10px;text-align:center">
+<div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
 <button type="button" style="padding:14px 20px;font-size:18px;border-radius:16px;background:#161616;color:#d4af37;border:1px solid rgba(212,175,55,.3);font-weight:700"
 onclick="showScreen('backup')">Backup</button>
+<button type="button" style="padding:14px 20px;font-size:18px;border-radius:16px;background:#161616;color:#d4af37;border:1px solid rgba(212,175,55,.3);font-weight:700"
+onclick="showScreen('manual')">Manual</button>
 </div>
 
     </section>
@@ -545,6 +547,63 @@ onclick="showScreen('backup')">Backup</button>
   
 
 
+
+    <section id="manual" class="screen screen-page">
+      <div class="toolbar">
+        <h2 class="screen-title">Manual</h2>
+        <button class="btn-back" onclick="history.back()">← voltar</button>
+      </div>
+
+      <div class="content-grid">
+        <div class="panel">
+          <h3>Como cadastrar filmes e séries</h3>
+          <div style="color:#d8d8d8;line-height:1.7">
+            <p style="margin-top:0"><strong>1.</strong> Abra a aba <strong>Filmes</strong> ou <strong>Séries</strong>.</p>
+            <p><strong>2.</strong> Digite o <strong>nome</strong> do título.</p>
+            <p><strong>3.</strong> Preencha ou confirme o <strong>gênero</strong>.</p>
+            <p><strong>4.</strong> Escreva a <strong>sinopse</strong>, se quiser.</p>
+            <p><strong>5.</strong> Defina a <strong>classificação por estrelas</strong>. Se tocar na mesma estrela de novo, a nota é removida.</p>
+            <p><strong>6.</strong> Escolha o <strong>status</strong>: pendente, quero assistir ou assistido.</p>
+            <p><strong>7.</strong> Toque em <strong>Salvar</strong>.</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Como usar a TMDB API Key</h3>
+          <div style="color:#d8d8d8;line-height:1.7">
+            <p style="margin-top:0"><strong>1.</strong> Salve sua <strong>TMDB API Key</strong> nesta tela.</p>
+            <p><strong>2.</strong> Depois volte para <strong>Filmes</strong> ou <strong>Séries</strong>.</p>
+            <p><strong>3.</strong> Digite o nome do título e toque em <strong>Buscar na API</strong>.</p>
+            <p><strong>4.</strong> O app pode preencher automaticamente nome, gênero, sinopse e capa.</p>
+          </div>
+
+          <div class="field full" style="margin-top:14px">
+            <label for="tmdbApiKey">TMDB API Key</label>
+            <input id="tmdbApiKey" type="text" placeholder="Cole sua chave da API do TMDB" />
+          </div>
+
+          <div class="actions">
+            <button type="button" class="btn-secondary" onclick="salvarTmdbApiKey()">Salvar chave</button>
+            <button type="button" class="btn-primary" onclick="abrirCadastroTmdb()">Abrir site do TMDB</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Cadastro no TMDB</h3>
+          <div style="color:#d8d8d8;line-height:1.7">
+            <p style="margin-top:0">Para criar sua chave da API, abra o site oficial do TMDB e faça seu cadastro.</p>
+            <p>Depois de entrar na sua conta, gere sua API Key e cole nesta tela.</p>
+            <p><strong>Link direto:</strong></p>
+            <p style="margin-bottom:0">
+              <a href="https://www.themoviedb.org/signup" target="_blank" rel="noopener noreferrer" style="color:#d4af37;text-decoration:none;font-weight:700">
+                https://www.themoviedb.org/signup
+              </a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section id="backup" class="screen screen-page">
       <div class="toolbar">
         <h2 class="screen-title">Backup</h2>
@@ -570,14 +629,6 @@ onclick="showScreen('backup')">Backup</button>
             style="display:none"
             onchange="importBackup(event)"
           />
-
-          <div class="field full" style="margin-top:14px">
-            <label for="tmdbApiKey">TMDB API Key</label>
-            <input id="tmdbApiKey" type="text" placeholder="Cole sua chave da API do TMDB" />
-          </div>
-          <div class="actions">
-            <button type="button" class="btn-secondary" onclick="salvarTmdbApiKey()">Salvar chave</button>
-          </div>
         </div>
 
         <div class="panel">
@@ -776,6 +827,10 @@ onclick="showScreen('backup')">Backup</button>
       alert('Chave da API salva com sucesso.');
     }
 
+    function abrirCadastroTmdb() {
+      window.open('https://www.themoviedb.org/signup', '_blank', 'noopener');
+    }
+
     function montarUrlPosterTmdb(path) {
       if (!path) return '';
       return `https://image.tmdb.org/t/p/w500${path}`;
@@ -784,9 +839,9 @@ onclick="showScreen('backup')">Backup</button>
     async function buscarNaApi(type) {
       const apiKey = getTmdbApiKey();
       if (!apiKey) {
-        showScreen('backup');
+        showScreen('manual');
         setTimeout(() => document.getElementById('tmdbApiKey')?.focus(), 120);
-        alert('Salve sua chave da API do TMDB na tela de Backup.');
+        alert('Salve sua chave da API do TMDB na tela Manual.');
         return;
       }
 
@@ -892,7 +947,7 @@ onclick="showScreen('backup')">Backup</button>
         <div><strong>Total cadastrado:</strong> ${total}</div>
         <div><strong>Armazenamento:</strong> IndexedDB local</div>
         <div><strong>Backup JSON:</strong> Ativo</div>
-        <div><strong>TMDB API:</strong> ${tmdbApiKey ? 'Configurada' : 'Não configurada'}</div>
+        <div><strong>TMDB API:</strong> ${tmdbApiKey ? 'Configurada no Manual' : 'Não configurada'}</div>
         <div><strong>Último salvamento:</strong> ${lastSavedText}</div>
       `;
     }
