@@ -1465,6 +1465,7 @@ onclick="showScreen('manual')">Manual</button>
             <div class="item-name">${escapeHtml(item.nome)}</div>
             <div class="item-meta">
               <span><strong>Gênero:</strong> ${escapeHtml(item.genero)}</span>
+              ${item.avaliacaoGeral ? `<span><strong>Avaliação geral:</strong> ${escapeHtml(item.avaliacaoGeral)}</span>` : ''}
               ${type === 'series' && Number(item.temporadas) > 0 ? `<span><strong>Temporadas:</strong> ${Number(item.temporadas)}</span>` : ''}
               <span><strong>Nota:</strong> ${Number(item.estrelas)}/5</span>
               <span><strong>Status:</strong> ${item.status === 'quero' ? 'Quero assistir' : (item.assistido ? 'Assistido' : 'Pendente')}</span>
