@@ -435,6 +435,10 @@ onclick="showScreen('manual')">Manual</button>
                 <textarea id="filmesSinopse" placeholder="Digite a sinopse do filme"></textarea>
               </div>
               <div class="field full">
+                <label for="filmesAvaliacaoGeral">Avaliação Geral do Público (0 a 10)</label>
+                <input id="filmesAvaliacaoGeral" type="text" inputmode="decimal" placeholder="Preenchido automaticamente pela API" />
+              </div>
+              <div class="field full">
                 <label>Classificação</label>
                 <div class="stars" id="filmesStars"></div>
               </div>
@@ -500,6 +504,14 @@ onclick="showScreen('manual')">Manual</button>
               <div class="field full">
                 <label for="seriesSinopse">Sinopse</label>
                 <textarea id="seriesSinopse" placeholder="Digite a sinopse da série"></textarea>
+              </div>
+              <div class="field full">
+                <label for="seriesTemporadas">Quantidade de Temporadas</label>
+                <input id="seriesTemporadas" type="number" min="1" step="1" placeholder="Preenchido automaticamente pela API" />
+              </div>
+              <div class="field full">
+                <label for="seriesAvaliacaoGeral">Avaliação Geral do Público (0 a 10)</label>
+                <input id="seriesAvaliacaoGeral" type="text" inputmode="decimal" placeholder="Preenchido automaticamente pela API" />
               </div>
               <div class="field full">
                 <label>Classificação</label>
@@ -848,6 +860,8 @@ onclick="showScreen('manual')">Manual</button>
       const nomeInput = document.getElementById(type + 'Nome');
       const generoInput = document.getElementById(type + 'Genero');
       const sinopseInput = document.getElementById(type + 'Sinopse');
+      const avaliacaoInput = document.getElementById(type + 'AvaliacaoGeral');
+      const temporadasInput = type === 'series' ? document.getElementById(type + 'Temporadas') : null;
       const titulo = (nomeInput?.value || '').trim();
 
       if (!titulo) {
@@ -904,6 +918,16 @@ onclick="showScreen('manual')">Manual</button>
 
         if (sinopseInput && details.overview) {
           sinopseInput.value = details.overview;
+        }
+
+        if (avaliacaoInput) {
+          const notaPublica = Number(details.vote_average || 0);
+          avaliacaoInput.value = notaPublica > 0 ? notaPublica.toFixed(1).replace('.', ',') + '/10' : '';
+        }
+
+        if (temporadasInput) {
+          const numeroTemporadas = Number(details.number_of_seasons || 0);
+          temporadasInput.value = numeroTemporadas > 0 ? String(numeroTemporadas) : '';
         }
 
         state[type].fetchedCapa = details.poster_path ? montarUrlPosterTmdb(details.poster_path) : '';
@@ -1196,6 +1220,10 @@ onclick="showScreen('manual')">Manual</button>
       document.getElementById(type + 'Nome').value = '';
       document.getElementById(type + 'Genero').value = '';
       document.getElementById(type + 'Sinopse').value = '';
+      const avaliacaoField = document.getElementById(type + 'AvaliacaoGeral');
+      if (avaliacaoField) avaliacaoField.value = '';
+      const temporadasField = document.getElementById(type + 'Temporadas');
+      if (temporadasField) temporadasField.value = '';
       document.getElementById(type + 'Status').value = 'pendente';
       state[type].selectedStars = 0;
       state[type].editingId = null;
@@ -1226,6 +1254,10 @@ onclick="showScreen('manual')">Manual</button>
         const nome = nomeInput.value.trim();
         const genero = generoInput.value.trim();
         const sinopse = sinopseInput.value.trim();
+        const avaliacaoGeralInput = document.getElementById(type + 'AvaliacaoGeral');
+        const temporadasInput = document.getElementById(type + 'Temporadas');
+        const avaliacaoGeral = (avaliacaoGeralInput?.value || '').trim();
+        const temporadas = type === 'series' ? Math.max(0, Number(temporadasInput?.value) || 0) : 0;
         const status = document.getElementById(type + 'Status').value || 'pendente';
         const editingId = state[type].editingId || null;
         const currentItem = editingId ? appData[type].find(item => item.id === editingId) : null;
@@ -1257,6 +1289,8 @@ onclick="showScreen('manual')">Manual</button>
               genero,
               capa,
               sinopse,
+              avaliacaoGeral,
+              temporadas: type === 'series' ? temporadas : undefined,
               estrelas: estrelasValidadas,
               status,
               assistido: status === 'assistido',
@@ -1268,6 +1302,8 @@ onclick="showScreen('manual')">Manual</button>
               genero,
               capa,
               sinopse,
+              avaliacaoGeral,
+              temporadas: type === 'series' ? temporadas : undefined,
               estrelas: estrelasValidadas,
               status,
               assistido: status === 'assistido',
@@ -1312,6 +1348,10 @@ onclick="showScreen('manual')">Manual</button>
       document.getElementById(type + 'Nome').value = item.nome || '';
       document.getElementById(type + 'Genero').value = item.genero || '';
       document.getElementById(type + 'Sinopse').value = item.sinopse || '';
+      const avaliacaoField = document.getElementById(type + 'AvaliacaoGeral');
+      if (avaliacaoField) avaliacaoField.value = item.avaliacaoGeral || '';
+      const temporadasField = document.getElementById(type + 'Temporadas');
+      if (temporadasField) temporadasField.value = item.temporadas || '';
       document.getElementById(type + 'Status').value = item.status || (item.assistido ? 'assistido' : 'pendente');
       state[type].selectedStars = Number(item.estrelas) || 0;
       state[type].fetchedCapa = item.capa || '';
@@ -1425,6 +1465,7 @@ onclick="showScreen('manual')">Manual</button>
             <div class="item-name">${escapeHtml(item.nome)}</div>
             <div class="item-meta">
               <span><strong>Gênero:</strong> ${escapeHtml(item.genero)}</span>
+              ${type === 'series' && Number(item.temporadas) > 0 ? `<span><strong>Temporadas:</strong> ${Number(item.temporadas)}</span>` : ''}
               <span><strong>Nota:</strong> ${Number(item.estrelas)}/5</span>
               <span><strong>Status:</strong> ${item.status === 'quero' ? 'Quero assistir' : (item.assistido ? 'Assistido' : 'Pendente')}</span>
             </div>
@@ -1468,14 +1509,19 @@ onclick="showScreen('manual')">Manual</button>
       document.getElementById('detailMeta').innerHTML = `
         <div class="detail-pill"><strong>Tipo:</strong> ${type === 'filmes' ? 'Filme' : 'Série'}</div>
         <div class="detail-pill"><strong>Gênero:</strong> ${escapeHtml(item.genero || '-')}</div>
+        ${type === 'series' && Number(item.temporadas) > 0 ? `<div class="detail-pill"><strong>Temporadas:</strong> ${Number(item.temporadas)}</div>` : ''}
         <div class="detail-pill"><strong>Status:</strong> ${statusTexto}</div>
         <div class="detail-pill"><strong>Nota:</strong> ${notaTexto}</div>
         <div class="detail-pill"><strong>Adicionado:</strong> ${addedAt}</div>
       `;
 
-      document.getElementById('detailSynopsis').innerHTML = item.sinopse
+      const sinopseHtml = item.sinopse
         ? escapeHtml(item.sinopse).replace(/\n/g, '<br>')
         : 'Sinopse não cadastrada.';
+      const avaliacaoHtml = item.avaliacaoGeral
+        ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08)"><strong style="color:#d4af37;display:block;margin-bottom:8px">Avaliação Geral do Público</strong>${escapeHtml(item.avaliacaoGeral).replace(/\n/g, '<br>')}</div>`
+        : '';
+      document.getElementById('detailSynopsis').innerHTML = `${sinopseHtml}${avaliacaoHtml}`;
 
       showScreen('detalhe');
     }
