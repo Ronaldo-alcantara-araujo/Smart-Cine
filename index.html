@@ -172,6 +172,35 @@
     .panel h3 {
       margin:0 0 12px; font-family:'Teko', sans-serif; font-size: 24px; color: var(--gold); text-transform: uppercase; letter-spacing: 1px;
     }
+
+    .form-card-head {
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:nowrap;
+      margin: 0 0 14px;
+    }
+    .form-card-head h3 { margin:0; flex:1; min-width:0; white-space:nowrap; }
+    .form-head-actions { display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+    .btn-api-top, .btn-save-top {
+      position:relative; overflow:hidden; border-radius:18px; min-height:50px; cursor:pointer; font-weight:900;
+      transition: transform .16s ease, filter .16s ease, box-shadow .16s ease;
+      user-select:none; -webkit-user-select:none;
+    }
+    .btn-api-top {
+      min-width:92px; padding:0 15px; background:linear-gradient(180deg,#171717,#080808);
+      color:var(--gold); border:2px solid var(--gold);
+      box-shadow:0 0 18px rgba(212,175,55,.35), inset 0 0 0 1px rgba(255,255,255,.04);
+    }
+    .btn-save-top {
+      min-width:112px; padding:0 18px; border:0; color:#090909;
+      background:linear-gradient(180deg,#f4d24d 0%,#d2a619 100%);
+      box-shadow:0 0 20px rgba(212,175,55,.45), inset 0 0 0 1px rgba(255,255,255,.28);
+    }
+    .btn-api-top::after, .btn-save-top::after {
+      content:""; position:absolute; inset:-45%; transform:translateX(-120%) rotate(20deg);
+      background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);
+      transition:transform .48s ease;
+    }
+    .btn-api-top:active, .btn-save-top:active { transform:scale(.96); filter:brightness(1.08); }
+    .btn-api-top:active::after, .btn-save-top:active::after { transform:translateX(120%) rotate(20deg); }
     .form-grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
     .field { display:flex; flex-direction:column; gap:6px; }
     .field.full { grid-column:1 / -1; }
@@ -338,6 +367,11 @@
 
 
     @media (max-width: 720px) {
+      .form-card-head { gap:8px; }
+      .form-card-head h3 { font-size: clamp(28px, 8vw, 36px); }
+      .form-head-actions { gap:7px; }
+      .btn-api-top { min-width:74px; min-height:46px; padding:0 10px; font-size:15px; border-radius:16px; }
+      .btn-save-top { min-width:94px; min-height:46px; padding:0 12px; font-size:15px; border-radius:16px; }
       .dash-grid { gap: 18px; }
       .dashboard-btn { min-height: 178px; }
       .form-grid { grid-template-columns: 1fr; }
@@ -419,7 +453,13 @@ onclick="showScreen('manual')">Manual</button>
 
       <div class="content-grid">
         <div class="panel">
-          <h3 id="filmesFormTitle">Novo Filme</h3>
+          <div class="form-card-head">
+            <h3 id="filmesFormTitle">Novo Filme</h3>
+            <div class="form-head-actions">
+              <button type="button" class="btn-api-top" onclick="buscarNaApi('filmes')">API 🔍</button>
+              
+            </div>
+          </div>
           <form id="filmesForm">
             <div class="form-grid">
               <div class="field full">
@@ -452,9 +492,8 @@ onclick="showScreen('manual')">Manual</button>
               </div>
             </div>
             <div class="actions">
-              <button type="button" class="btn-secondary" onclick="buscarNaApi('filmes')">Buscar na API</button>
-              <button type="submit" class="btn-primary" id="filmesSubmitBtn">Salvar Filme</button>
               <button type="button" class="btn-secondary" onclick="cancelEdit('filmes')">Cancelar</button>
+              <button type="submit" class="btn-primary" id="filmesSubmitBtn">Salvar</button>
             </div>
           </form>
         </div>
@@ -490,7 +529,13 @@ onclick="showScreen('manual')">Manual</button>
 
       <div class="content-grid">
         <div class="panel">
-          <h3 id="seriesFormTitle">Nova Série</h3>
+          <div class="form-card-head">
+            <h3 id="seriesFormTitle">Nova Série</h3>
+            <div class="form-head-actions">
+              <button type="button" class="btn-api-top" onclick="buscarNaApi('series')">API 🔍</button>
+              
+            </div>
+          </div>
           <form id="seriesForm">
             <div class="form-grid">
               <div class="field full">
@@ -527,9 +572,8 @@ onclick="showScreen('manual')">Manual</button>
               </div>
             </div>
             <div class="actions">
-              <button type="button" class="btn-secondary" onclick="buscarNaApi('series')">Buscar na API</button>
-              <button type="submit" class="btn-primary" id="seriesSubmitBtn">Salvar Série</button>
               <button type="button" class="btn-secondary" onclick="cancelEdit('series')">Cancelar</button>
+              <button type="submit" class="btn-primary" id="seriesSubmitBtn">Salvar</button>
             </div>
           </form>
         </div>
@@ -595,7 +639,7 @@ onclick="showScreen('manual')">Manual</button>
           </div>
 
           <div class="actions">
-            <button type="button" class="btn-secondary" onclick="salvarTmdbApiKey()">Salvar chave</button>
+            
             <button type="button" class="btn-primary" onclick="abrirCadastroTmdb()">Abrir site do TMDB</button>
           </div>
         </div>
@@ -1211,9 +1255,7 @@ onclick="showScreen('manual')">Manual</button>
         ? (type === 'filmes' ? 'Editar Filme' : 'Editar Série')
         : (type === 'filmes' ? 'Novo Filme' : 'Nova Série');
 
-      document.getElementById(type + 'SubmitBtn').textContent = editing
-        ? 'Salvar Alterações'
-        : (type === 'filmes' ? 'Salvar Filme' : 'Salvar Série');
+      document.getElementById(type + 'SubmitBtn').textContent = 'Salvar 💾';
     }
 
     function clearForm(type) {
